@@ -95,6 +95,28 @@ def test_generator_prunes_conflicts_ranks_and_breaks_ties_lexicographically() ->
     assert result.discard_reasons["conflict"] == 1
 
 
+def test_generator_keeps_only_the_best_result_with_deterministic_ties() -> None:
+    candidates = {
+        code: [
+            bundle(code, suffix, day, 600, 660)
+            for suffix, day in (("3", "wed"), ("1", "mon"), ("2", "tue"))
+        ]
+        for code in ("A", "B")
+    }
+    result = generate_schedules(
+        GenerationRequest(
+            required_disciplines=("A", "B"),
+            max_results=1,
+            preferences=Preferences(days_weight=0, gaps_weight=0),
+        ),
+        candidates,
+    )
+    assert [item.bundle_ids for item in result.schedules] == [
+        ("bundle:A:1", "bundle:B:2")
+    ]
+    assert result.truncated is False
+
+
 def test_generator_budget_returns_deterministic_partial_results() -> None:
     candidates = {
         code: [bundle(code, str(index), "mon", index * 120, index * 120 + 60) for index in range(4)]

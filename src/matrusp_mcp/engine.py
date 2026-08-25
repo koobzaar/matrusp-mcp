@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from bisect import bisect_right
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import cast
@@ -169,7 +170,15 @@ def generate_schedules(
                 if not required.issubset(active_days):
                     discard["hard_constraint"] = discard.get("hard_constraint", 0) + 1
                     return
-            found.append(RankedSchedule(tuple(bundle.id for bundle in selected), score, metrics))
+            ranked = RankedSchedule(tuple(bundle.id for bundle in selected), score, metrics)
+            position = bisect_right(
+                found,
+                (ranked.score, ranked.bundle_ids),
+                key=lambda item: (item.score, item.bundle_ids),
+            )
+            found.insert(position, ranked)
+            if len(found) > request.max_results:
+                found.pop()
             return
         discipline = order[index]
         for candidate in normalized[discipline]:
@@ -214,9 +223,6 @@ def generate_schedules(
         discard["unknown"] += 1
     else:
         walk(0, initial)
-    ranked = tuple(
-        sorted(found, key=lambda item: (item.score, item.bundle_ids))[: request.max_results]
-    )
     return GenerationResult(
-        ranked, truncated, explored, {key: value for key, value in discard.items() if value}
+        tuple(found), truncated, explored, {key: value for key, value in discard.items() if value}
     )
