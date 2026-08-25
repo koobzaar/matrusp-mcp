@@ -1,12 +1,23 @@
+from pathlib import Path
+
+import pytest
+
 from matrusp_mcp.crawler.models import CandidateCurriculum, CandidateDiscipline, UnitCandidate
 from matrusp_mcp.crawler.parsers import (
     deduplicate_candidates,
     parse_curriculum_detail,
     parse_curriculum_index,
+    parse_discipline_detail,
     parse_discipline_index,
     parse_sections_page,
     parse_units,
 )
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def fixture(name: str) -> str:
+    return (FIXTURES / name).read_text()
 
 
 def test_units_and_candidates_accept_unquoted_attributes_and_numeric_codes() -> None:
@@ -38,13 +49,22 @@ def test_candidates_are_globally_deduplicated_preserving_origins_and_versions() 
     )
 
 
-def test_explicit_no_offer_is_classified_without_parse_error() -> None:
-    parsed = parse_sections_page(
-        "<html><body>Não existem turmas para esta disciplina no período informado.</body></html>",
-        "MAC0001",
-    )
+@pytest.mark.parametrize(
+    "message",
+    (
+        "Não existem turmas para esta disciplina no período informado.",
+        "Nao existe oferecimento para a sigla MAC0001",
+        "Não existe oferecimento para a sigla MAC0001",
+    ),
+)
+def test_explicit_no_offer_is_classified_without_parse_error(message: str) -> None:
+    parsed = parse_sections_page(f"<html><body>{message}</body></html>", "MAC0001")
     assert parsed.status == "no_current_offer"
     assert parsed.sections == ()
+
+
+def test_current_mojibake_no_offer_is_classified_without_parse_error() -> None:
+    assert parse_sections_page(fixture("no_offer.html"), "MAC0101").status == "no_current_offer"
 
 
 def test_section_state_does_not_leak_schedule_or_vacancies() -> None:
@@ -66,6 +86,46 @@ def test_section_state_does_not_leak_schedule_or_vacancies() -> None:
     assert parsed.sections[1].meetings == ()
     assert parsed.vacancies[parsed.sections[0].id][0].available_text == "10"
     assert parsed.vacancies[parsed.sections[1].id] == ()
+
+
+def test_nested_sections_preserve_schedule_rows_professors_days_and_grouped_vacancies() -> None:
+    parsed = parse_sections_page(fixture("offering_nested.html"), "MAC0001", "observed")
+    assert parsed.status == "confirmed"
+    assert [section.id for section in parsed.sections] == [
+        "section:MAC0001:2026201",
+        "section:MAC0001:2026202",
+    ]
+    first, second = parsed.sections
+    assert [(item.day, item.original_day) for item in first.meetings] == [
+        ("mon", "seg"),
+        ("mon", "seg"),
+    ]
+    assert [item.display_name for item in first.professors] == ["Ada Lovelace", "Grace Hopper"]
+    assert first.professors[0].responsible is True
+    assert all(item.display_name != "Prof(a) ." for item in first.professors)
+    assert [(item.day, item.original_day) for item in second.meetings] == [
+        ("tue", "terça-feira")
+    ]
+    first_vacancies = parsed.vacancies[first.id]
+    assert [(item.category, item.group_name) for item in first_vacancies] == [
+        ("Optativa Eletiva", None),
+        ("Optativa Eletiva", "IME - Ciência da Computação"),
+    ]
+    assert first_vacancies[1].available_text == "20"
+    second_vacancy = parsed.vacancies[second.id][0]
+    assert second_vacancy.registered_text is None
+    assert second_vacancy.pending_text is None
+    assert second_vacancy.enrolled_text == "35"
+
+
+def test_duplicate_generated_section_ids_are_invalid_source() -> None:
+    html = """
+    <table><tr><td>Código da Turma</td><td>2026201</td></tr></table>
+    <table><tr><td>Código da Turma</td><td>2026201</td></tr></table>
+    """
+    parsed = parse_sections_page(html, "MAC0001")
+    assert parsed.status == "invalid_source"
+    assert parsed.message == "duplicate generated section id: section:MAC0001:2026201"
 
 
 def test_missing_or_changed_tables_are_invalid_source() -> None:
@@ -93,37 +153,68 @@ def test_current_curriculum_index_supports_links_options_and_rejects_historical_
         ("CC", "Lic"),
     ]
     assert values[0].unit_code == "45"
+    assert values[0].campus == "Cidade Universitária"
 
 
-def test_curriculum_detail_extracts_metadata_items_nature_credits_and_requirement_sets() -> None:
-    candidate = CandidateCurriculum("CC", "Bach", "Curso antigo", "45")
-    parsed = parse_curriculum_detail(
+def test_curriculum_index_extracts_source_campus_metadata() -> None:
+    parsed = parse_curriculum_index(
         """
-        <table>
-          <tr><td>Curso</td><td>CC - Curso atual</td></tr>
-          <tr><td>Campus</td><td>São Carlos</td></tr>
-          <tr><td>Vigência</td><td>20262</td></tr>
-        </table>
-        <table>
-          <tr><th>Período ideal</th><th>Código da Disciplina</th><th>Natureza</th>
-              <th>Requisitos</th><th>Créditos Aula</th><th>Créditos Trabalho</th></tr>
-          <tr><td>1</td><td>MAC0001 - Introdução</td><td>Obrigatória</td>
-              <td>MAC0002 (forte), MAC0003 (fraca), MAC0004 (conjunto)</td><td>4</td><td>2</td></tr>
-          <tr><td>2</td><td>MAC0005 - Eletiva</td><td>Eletiva</td><td></td><td>-</td><td>-</td></tr>
-          <tr><td>3</td><td>MAC0006</td><td>Optativa</td><td></td><td>3</td><td>0</td></tr>
-        </table>
+        <table><tr><td>Campus: São Paulo - Cidade Universitária</td></tr></table>
+        <a href="listarGradeCurricular?codcur=45052&codhab=0">Computação</a>
         """,
-        candidate,
+        UnitCandidate("45", "IME"),
     )
-    assert parsed.candidate.name == "Curso atual"
+    assert parsed[0].campus == "São Paulo - Cidade Universitária"
+
+
+def test_curriculum_detail_tracks_nature_period_items_and_following_requirements() -> None:
+    candidate = CandidateCurriculum(
+        "CC", "Bach", "Curso antigo", "45", campus="São Carlos", period_code="20262"
+    )
+    parsed = parse_curriculum_detail(fixture("curriculum.html"), candidate)
+    assert parsed.candidate.name == "Ciência da Computação"
     assert parsed.source_campus_name == "São Carlos"
     assert parsed.source_period_code == "20262"
-    assert [item.discipline_code for item in parsed.items] == ["MAC0001", "MAC0005", "MAC0006"]
+    assert [item.discipline_code for item in parsed.items] == ["MAC0001", "1234567", "MAC0999"]
     first = parsed.items[0]
     assert first.strong_prerequisites == ("MAC0002",)
-    assert first.weak_prerequisites == ("MAC0003",)
-    assert first.set_indications == ("MAC0004",)
+    assert first.weak_prerequisites == ("1234567",)
+    assert first.set_indications == ("MAC0003",)
     assert first.aula_credits == 4 and first.work_credits == 2
+    assert [(item.ideal_period, item.item_type) for item in parsed.items] == [
+        ("1", "obrigatoria"),
+        ("2", "obrigatoria"),
+        ("unknown", "livre"),
+    ]
+    assert "ATPA" not in {item.discipline_code for item in parsed.items}
+
+
+def test_discipline_detail_uses_heading_content_and_prefers_ementa() -> None:
+    candidate = CandidateDiscipline("MAC0001", "Nome antigo", "3", ("45",))
+    parsed = parse_discipline_detail(fixture("discipline_detail.html"), candidate, "45")
+    assert parsed.name == "Introdução à Computação"
+    assert parsed.department == "Ciência da Computação"
+    assert parsed.aula_credits == 4 and parsed.work_credits == 2
+    assert parsed.objectives == "Ensinar fundamentos."
+    assert parsed.summary == "Resumo preferido."
+    assert parsed.is_stub is False
+
+
+def test_discipline_detail_tolerates_absent_optional_headings_and_uses_summary_fallback() -> None:
+    candidate = CandidateDiscipline("MAC0002", "Nome antigo", None, ("45",))
+    parsed = parse_discipline_detail(
+        """
+        <table><tr><td>Disciplina: MAC0002 - Estruturas</td></tr></table>
+        <table><tr><td>Conteúdo Programático</td></tr><tr><td>Listas e árvores.</td></tr></table>
+        """,
+        candidate,
+        "45",
+    )
+    assert parsed.name == "Estruturas"
+    assert parsed.department is None
+    assert parsed.objectives is None
+    assert parsed.summary == "Listas e árvores."
+    assert parsed.aula_credits == 0 and parsed.work_credits == 0
 
 
 def test_schedule_parser_handles_changed_headers_and_partial_rows() -> None:

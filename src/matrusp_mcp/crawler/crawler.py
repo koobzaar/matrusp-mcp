@@ -14,18 +14,17 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 import httpx
-from bs4 import BeautifulSoup
 
 from ..bundles import derive_bundles
 from ..campus import CampusOverride, apply_campus_override, normalize_campus
 from ..domain import Curriculum, CurriculumItem, Discipline, OfferingHistory, Unit, Vacancy
-from ..normalize import normalize_text
 from ..snapshot import SnapshotData, SnapshotMetadata
 from .models import CandidateCurriculum, CandidateDiscipline, ParsedCurriculum, ParsedSections
 from .parsers import (
     deduplicate_candidates,
     parse_curriculum_detail,
     parse_curriculum_index,
+    parse_discipline_detail,
     parse_discipline_index,
     parse_sections_page,
     parse_units,
@@ -191,50 +190,20 @@ class JupiterCrawler:
     def _discipline_from_candidate(
         candidate: CandidateDiscipline, unit_code: str | None, detail: bytes | None
     ) -> Discipline:
-        name = candidate.name
-        department: str | None = None
-        objectives: str | None = None
-        summary: str | None = None
-        aula, work = 0, 0
         if detail is not None:
-            soup = BeautifulSoup(detail, "html5lib")
-            for row in soup.find_all("tr"):
-                cells = [
-                    " ".join(cell.stripped_strings).strip()
-                    for cell in row.find_all(["th", "td"])
-                ]
-                if len(cells) < 2:
-                    continue
-                label = normalize_text(cells[0])
-                if label == "disciplina":
-                    name = cells[1].split("-", 1)[-1].strip()
-                elif "creditos aula" in label:
-                    value = "".join(character for character in cells[1] if character.isdigit())
-                    if value:
-                        aula = int(value)
-                elif "creditos trabalho" in label:
-                    value = "".join(character for character in cells[1] if character.isdigit())
-                    if value:
-                        work = int(value)
-                elif "departamento" in label:
-                    department = cells[1]
-                elif "objetivo" in label:
-                    objectives = " ".join(cells[1:]).strip()
-                elif "ementa" in label or "programa" in label or "conteudo" in label:
-                    summary = " ".join(cells[1:]).strip()
+            return parse_discipline_detail(detail, candidate, unit_code)
         return Discipline(
             candidate.code,
-            name,
+            candidate.name,
             unit_code,
-            department,
+            None,
             candidate.verdis,
-            aula,
-            work,
-            objectives,
-            summary,
-            detail is None,
-            candidate.unit_codes,
-            candidate.verdis_seen or ((candidate.verdis,) if candidate.verdis else ()),
+            0,
+            0,
+            is_stub=True,
+            unit_codes=candidate.unit_codes,
+            versions=candidate.verdis_seen
+            or ((candidate.verdis,) if candidate.verdis else ()),
         )
 
     async def crawl(self) -> SnapshotData:
