@@ -6,4 +6,12 @@ styles/.sass-cache/*
 .idea
 *.log
 *.lock
-.venv
+!uv.lock
+.venv/
+dist/
+.ruff_cache/
+.hypothesis/
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
