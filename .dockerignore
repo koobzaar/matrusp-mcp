@@ -1,0 +1,15 @@
+.git
+.github
+.claude
+.playwright
+.venv
+old
+db
+js
+styles
+images
+php
+tests
+*.pyc
+__pycache__
+
