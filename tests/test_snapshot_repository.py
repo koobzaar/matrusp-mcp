@@ -172,6 +172,37 @@ def test_repository_filters_and_window_modes(snapshot: Path) -> None:
     repository.close()
 
 
+def test_overlap_day_and_window_must_match_the_same_meeting(tmp_path: Path) -> None:
+    data = sample_data()
+    original = data.sections[0]
+    multi_day = replace(
+        original,
+        meetings=(
+            Meeting(
+                "tue", 600, 660, original.start_date, original.end_date, "10:00", "11:00"
+            ),
+            Meeting(
+                "wed", 900, 960, original.start_date, original.end_date, "15:00", "16:00"
+            ),
+        ),
+    )
+    path = tmp_path / "multi-day.sqlite"
+    build_snapshot(
+        replace(
+            data,
+            sections=(multi_day, data.sections[1]),
+            bundles=derive_bundles((multi_day, data.sections[1])),
+        ),
+        path,
+    )
+    with Repository(path) as repository:
+        assert repository.search_offerings(days=("tue",), window=(620, 630)).items
+        assert repository.search_offerings(days=("tue",), window=(900, 930)).items == ()
+        assert repository.search_offerings(days=("tue",), window=(660, 700)).items == ()
+        assert repository.search_offerings(days=("tue",), window=(590, 600)).items == ()
+        assert repository.search_offerings(days=("wed",), window=(900, 930)).items
+
+
 def test_cursor_from_another_snapshot_is_rejected(snapshot: Path, tmp_path: Path) -> None:
     repository = Repository(snapshot)
     cursor = repository.encode_cursor(score=1.0, last_id="bundle:MAC0001:20262A")

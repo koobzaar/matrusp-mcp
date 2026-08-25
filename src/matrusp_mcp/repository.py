@@ -326,6 +326,7 @@ class Repository:
                     item
                     for item in meetings
                     if item.day
+                    and (not day_set or item.day in day_set)
                     and conflict_between(
                         item,
                         Meeting(

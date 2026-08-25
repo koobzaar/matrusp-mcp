@@ -317,10 +317,10 @@ def create_http_app(
         transport_security=security,
     )
     app = RateLimitMiddleware(
-        HostOriginMiddleware(
-            BodyLimitMiddleware(app), tuple(hosts), tuple(allowed_origins)
-        ),
+        app,
         trusted_proxy_cidrs,
         snapshot_id=repository.snapshot_id,
     )
+    app = BodyLimitMiddleware(app)
+    app = HostOriginMiddleware(app, tuple(hosts), tuple(allowed_origins))
     return app
