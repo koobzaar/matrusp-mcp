@@ -37,6 +37,9 @@ dev = [
 [tool.uv]
 required-version = "==0.12.5"
 
+[tool.vercel]
+entrypoint = "asgi:app"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/matrusp_mcp"]
 

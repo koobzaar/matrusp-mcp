@@ -114,6 +114,31 @@ docker run --rm \
   matrusp-mcp:test
 ```
 
+## Vercel
+
+O runtime Python da Vercel carrega `asgi:app`, configurado em `pyproject.toml`. O arquivo
+`vercel.json` inclui explicitamente `data/matrusp.sqlite` no bundle da função; o runtime continua
+somente-leitura e offline.
+
+Ao importar o repositório na Vercel, use o preset `Other`, mantenha a raiz do repositório e deixe
+Build Command, Output Directory e Install Command sem override. A plataforma detecta
+`pyproject.toml` e `uv.lock`.
+
+Habilite a exposição automática das variáveis de sistema da Vercel. O entrypoint aceita os hosts
+presentes em `VERCEL_URL`, `VERCEL_BRANCH_URL` e `VERCEL_PROJECT_PRODUCTION_URL`, cobrindo os
+deployments de Preview e Production sem liberar hosts arbitrários.
+
+`MATRUSP_SNAPSHOT=data/matrusp.sqlite` é opcional. Use `MATRUSP_ALLOWED_HOSTS` apenas para acrescentar
+domínios que não estejam nas variáveis da plataforma, como um domínio personalizado adicional.
+`MATRUSP_ALLOWED_ORIGINS` e `MATRUSP_TRUSTED_PROXY_CIDRS` permanecem opt-in.
+
+Depois do deployment, verifique:
+
+```bash
+curl https://SEU-DOMINIO.vercel.app/healthz
+curl https://SEU-DOMINIO.vercel.app/readyz
+```
+
 ## Próximos passos
 
 - [Referência MCP](mcp-reference.md)
