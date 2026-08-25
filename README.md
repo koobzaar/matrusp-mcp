@@ -1,49 +1,45 @@
-# MatrUSP MCP
+<div align="center">
+  <h1>MatrUSP MCP</h1>
+  <p>Servidor MCP read-only para ofertas, horários e currículos públicos da USP.</p>
 
-Servidor MCP read-only para consultar ofertas, turmas, horários e currículos públicos do JupiterWeb da USP. O runtime nunca acessa a rede: ele abre um snapshot SQLite verificado em `mode=ro&immutable=1`.
+  <p>
+    <a href="docs/getting-started.md">Instalação</a> •
+    <a href="docs/mcp-reference.md">MCP</a> •
+    <a href="docs/architecture.md">Arquitetura</a> •
+    <a href="docs/development-and-releases.md">Desenvolvimento</a>
+  </p>
 
-Read-only MCP server for public USP JupiterWeb offerings, sections, schedules and curricula. Runtime never contacts JupiterWeb; it reads an integrity-checked immutable SQLite snapshot.
+  <p>
+    <a href="https://github.com/koobzaar/matrusp-mcp/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/koobzaar/matrusp-mcp/ci.yml?branch=tcc2016&amp;label=CI" alt="CI"/></a>
+    <a href="https://github.com/koobzaar/matrusp-mcp/actions/workflows/contract.yml"><img src="https://img.shields.io/github/actions/workflow/status/koobzaar/matrusp-mcp/contract.yml?label=live%20contract" alt="Live contract"/></a>
+    <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&amp;logoColor=white" alt="Python 3.12"/>
+    <img src="https://img.shields.io/badge/MCP-v2-5A45FF" alt="MCP v2"/>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--only-663399" alt="AGPL-3.0-only"/></a>
+  </p>
+</div>
 
-## Arquitetura / Architecture
+## Tecnologias
 
-`crawler` coleta e normaliza HTML com TLS, retries e concorrência limitada. `snapshot` publica SQLite atomically after integrity, foreign-key, schema and smoke checks. `repository`, `temporal` and `engine` implement search, semi-open intervals, conflict states and deterministic top-K schedules. `mcp_server` exposes the same service over stdio and Streamable HTTP (`/mcp`).
+`Python 3.12` · `MCP v2` · `Pydantic v2` · `Starlette` · `Uvicorn` · `SQLite FTS5` ·
+`Beautiful Soup` · `httpx` · `uv` · `Docker` · `Playwright` · `pytest` · `Ruff` · `Pyright`
 
-The public tools are `search_offerings`, `get_discipline`, `find_gap_fillers`, `check_schedule_conflicts`, `generate_schedules`, `compare_schedules`, `search_curricula` and `get_curriculum`. The resource `matrusp://snapshot/manifest` provides provenance, schema version, license and counts.
+## Documentação técnica
 
-Horários usam intervalos `[início, fim)`, datas inclusivas e retornam `unknown` quando incompletos. Ofertas sem horário não entram em buscas temporais ou combinações por padrão; vagas são observações datadas, nunca garantias.
+| Área | Referência |
+|---|---|
+| Instalação, stdio, Streamable HTTP, Docker | [Instalação e execução](docs/getting-started.md) |
+| Camadas, módulos, domínio, IDs, invariantes | [Arquitetura](docs/architecture.md) |
+| Tools, inputs, respostas, erros, manifesto | [Referência MCP](docs/mcp-reference.md) |
+| Intervalos, conflitos, bundles, top-K, score | [Semântica temporal e ranking](docs/temporal-and-ranking.md) |
+| JupiterWeb, parsers, SQLite v1, artefatos | [Snapshots e crawler](docs/snapshots-and-crawler.md) |
+| ASGI, Host, Origin, body limit, rate limit | [Segurança HTTP](docs/http-security.md) |
+| uv, testes, CI, live contract, releases, GHCR | [Desenvolvimento e releases](docs/development-and-releases.md) |
 
-## Execução / Running
+## MCP tools
 
-```bash
-uv sync
-uv run matrusp-mcp serve --transport stdio --snapshot data/matrusp.sqlite
-uv run matrusp-mcp serve --transport streamable-http --snapshot data/matrusp.sqlite
-uv run matrusp-mcp validate data/matrusp.sqlite
-```
+`search_offerings` · `get_discipline` · `find_gap_fillers` · `check_schedule_conflicts` ·
+`generate_schedules` · `compare_schedules` · `search_curricula` · `get_curriculum`
 
-O servidor HTTP oferece somente `/mcp`, `/healthz` e `/readyz`, valida Host/Origin, limita corpos a 256 KiB e aplica rate limit em memória (60 tokens/minuto, burst 20, custos ponderados por tool). Configure `MATRUSP_SNAPSHOT`, `MATRUSP_ALLOWED_HOSTS`, `MATRUSP_ALLOWED_ORIGINS` e `MATRUSP_TRUSTED_PROXY_CIDRS` no proxy oficial; nenhum IP ou argumento é persistido.
+## Licença
 
-## Coleta e publicação / Crawler and releases
-
-```bash
-uv run matrusp-mcp crawl --output /tmp/matrusp.sqlite \
-  --previous /path/to/previous.sqlite --artifacts /tmp/release
-```
-
-O índice do Jupiter é apenas uma lista de candidatos. Cada candidato termina como `confirmed` ou `no_current_offer`; qualquer fetch/parse não classificado aborta a promoção atômica. A coleta de currículos usa somente `tipo=N`, inclui habilitações, requisitos fortes/fracos e indicações de conjunto; grades históricas (`tipo=V`) não são percorridas. Disciplinas curriculares sem oferta recebem stubs. Versões são reutilizadas por `(discipline_code, verdis)`, o histórico é mesclado do snapshot anterior e os códigos de período da fonte são preservados.
-
-Releases válidos publicam `matrusp-snapshot-{snapshot_id}.sqlite.gz`, `manifest-{snapshot_id}.json` e `SHA256SUMS`, com tag imutável `snapshot-v1-{UTC_TIMESTAMP}`. A opção `--artifacts` produz esses três arquivos somente após a validação do banco. A imagem Docker é reconstruída somente depois de um release válido; o workflow baixa o snapshot anterior e aplica a proteção de delta superior a 20%.
-
-## Desenvolvimento / Development
-
-```bash
-uv run pytest --cov=matrusp_mcp --cov-branch
-uv run ruff check .
-uv run pyright
-```
-
-O projeto requer Python 3.12+, usa o SDK oficial MCP v2 (`mcp>=2,<3`) e não publica no PyPI na v1. O snapshot de bootstrap em `data/matrusp.sqlite` é pequeno e apenas para desenvolvimento/imagem; dados de produção devem ser obtidos pelo workflow de coleta.
-
-## Dados e licença / Data and license
-
-Fontes primárias: páginas públicas `https://uspdigital.usp.br/jupiterweb/`; o manifesto registra URLs, horários de observação, checksums, commit do crawler e contagens. O código é AGPL-3.0-only. Consulte [LICENSE](LICENSE) e [CONTRIBUTORS.md](CONTRIBUTORS.md) para a licença, atribuição e histórico da comunidade MatrUSP.
+[AGPL-3.0-only](LICENSE) · [Contribuidores](CONTRIBUTORS.md) · Fonte: `JupiterWeb USP`
