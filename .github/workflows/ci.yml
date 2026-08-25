@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.5"
+      - run: uv sync --locked
+      - run: uv run --locked ruff check .
+      - run: uv run --locked pyright
+      - run: uv run --locked pytest --cov=matrusp_mcp --cov-branch
+      - run: uv build
+      - run: docker build --tag matrusp-mcp:test .

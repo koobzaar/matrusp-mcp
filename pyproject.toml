@@ -1,0 +1,101 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "matrusp-mcp"
+version = "0.1.0"
+description = "Servidor MCP read-only para ofertas e currículos públicos da USP"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "AGPL-3.0-only" }
+authors = [{ name = "MatrUSP contributors" }]
+dependencies = [
+  "beautifulsoup4>=4.13,<5",
+  "html5lib>=1.1,<2",
+  "httpx>=0.28,<1",
+  "mcp>=2,<3",
+  "pydantic>=2.11,<3",
+  "starlette>=0.47,<1",
+  "uvicorn>=0.35,<1",
+]
+
+[project.scripts]
+matrusp-mcp = "matrusp_mcp.cli:main"
+
+[dependency-groups]
+dev = [
+  "hypothesis>=6.138,<7",
+  "pyright>=1.1.404,<2",
+  "pytest>=8.4,<9",
+  "pytest-asyncio>=1.1,<2",
+  "pytest-cov>=6.2,<7",
+  "playwright>=1.54,<2",
+  "ruff>=0.12,<1",
+]
+
+[tool.uv]
+required-version = "==0.12.5"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/matrusp_mcp"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = ["live_contract: headless checks against representative JupiterWeb pages"]
+
+[tool.coverage.run]
+branch = true
+source = ["matrusp_mcp"]
+omit = [
+  "*/bootstrap.py",
+  "*/campus.py",
+  "*/cli.py",
+  "*/http_server.py",
+  "*/mcp_server.py",
+  "*/crawler/crawler.py",
+]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "S", "RUF"]
+ignore = [
+  "S101",
+  "E501",
+  "ASYNC109",
+  "S311",
+  "S104",
+  "S608",
+  "B905",
+  "RUF005",
+  "RUF007",
+  "UP047",
+]
+
+[tool.pyright]
+include = ["src"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false
+reportUnknownVariableType = false
+reportUnknownArgumentType = false
+reportUnknownMemberType = false
+reportUnknownParameterType = false
+reportUnknownLambdaType = false
+reportUnusedImport = false
+reportUnusedFunction = false
+reportPrivateUsage = false
+reportUnnecessaryComparison = false
+reportInvalidTypeVarUse = false

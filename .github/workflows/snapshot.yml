@@ -1,0 +1,76 @@
+name: Weekly snapshot
+
+on:
+  schedule:
+    - cron: "0 11 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: snapshot-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.5"
+      - run: uv sync --locked
+      - name: Download previous snapshot when one exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          mkdir -p /tmp/previous
+          asset="$(gh release list --limit 1 --json tagName,isDraft,isPrerelease --jq '.[] | select(.isDraft == false and .isPrerelease == false) | .tagName' | head -n 1 || true)"
+          if [ -n "$asset" ]; then
+            gh release download "$asset" --pattern 'matrusp-snapshot-*.sqlite.gz' --dir /tmp/previous
+            gzip -dc /tmp/previous/matrusp-snapshot-*.sqlite.gz > /tmp/previous.sqlite
+          fi
+      - name: Crawl and validate
+        run: |
+          args=(--output /tmp/matrusp.sqlite --artifacts /tmp/artifacts)
+          if [ -f /tmp/previous.sqlite ]; then args+=(--previous /tmp/previous.sqlite); fi
+          uv run --locked matrusp-mcp crawl "${args[@]}"
+      - name: Promote release artifacts only after validation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          uv run --locked matrusp-mcp validate /tmp/matrusp.sqlite
+          snapshot_id="$(uv run --locked python -c 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute("select snapshot_id from snapshot_metadata").fetchone()[0])' /tmp/matrusp.sqlite)"
+          cp /tmp/artifacts/matrusp-snapshot-${snapshot_id}.sqlite.gz .
+          cp /tmp/artifacts/manifest-${snapshot_id}.json .
+          cp /tmp/artifacts/SHA256SUMS .
+          cp /tmp/matrusp.sqlite data/matrusp.sqlite
+          echo "SNAPSHOT_ID=${snapshot_id}" >> "$GITHUB_ENV"
+      - name: Gate release on a verified image build
+        run: docker build --tag matrusp-mcp:release-gate .
+      - name: Create immutable GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          snapshot_id="${SNAPSHOT_ID}"
+          release_tag="snapshot-v1-$(date -u +%Y%m%dT%H%M%SZ)"
+          gh release create "$release_tag" "matrusp-snapshot-${snapshot_id}.sqlite.gz" "manifest-${snapshot_id}.json" SHA256SUMS --generate-notes
+      - name: Publish image after release
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/${{ github.repository }}:${{ env.SNAPSHOT_ID }}
+            ghcr.io/${{ github.repository }}:latest
