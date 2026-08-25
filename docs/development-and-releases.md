@@ -2,8 +2,9 @@
 
 ## Ambiente
 
-O projeto usa Python `3.12` e uv `0.12.5`. Não use `pip`, Python global ou edição manual de
-`.venv`.
+O projeto usa Python `3.12` e uv `0.12.5` como versão de referência. `pyproject.toml` aceita
+`uv>=0.10.11,<0.13` para compatibilidade com o runtime da Vercel. Não use `pip`, Python global ou
+edição manual de `.venv`.
 
 ```bash
 uv sync --locked

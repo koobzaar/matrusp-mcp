@@ -5,12 +5,13 @@
 | Componente | Versão ou função |
 |---|---|
 | Python | `3.12` ou superior |
-| uv | `0.12.5`, fixado em `pyproject.toml` |
+| uv | `>=0.10.11,<0.13`; desenvolvimento e CI usam `0.12.5` |
 | SQLite | snapshot local com schema MatrUSP v1 |
 | MCP | SDK Python `mcp>=2,<3` |
 
 O `uv` é o único gerenciador de ambiente e dependências do projeto. Todos os comandos de
-desenvolvimento usam o lockfile e não alteram suas resoluções.
+desenvolvimento usam o lockfile e não alteram suas resoluções. A faixa compatível inclui o runtime
+Python da Vercel (`0.10.11`) sem mudar a versão de referência do projeto (`0.12.5`).
 
 ```bash
 git clone https://github.com/koobzaar/matrusp-mcp.git

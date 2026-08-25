@@ -68,7 +68,7 @@ transportes suportados.
 
 ## Começando
 
-Requisitos: **Python 3.12+** e **uv 0.12.5**.
+Requisitos: **Python 3.12+** e **uv 0.10.11–0.12.x**; desenvolvimento e CI usam `0.12.5`.
 
 ```bash
 git clone https://github.com/koobzaar/matrusp-mcp.git
