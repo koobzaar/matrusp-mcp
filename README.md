@@ -1,5 +1,6 @@
 <div align="center">
   <h1>MatrUSP MCP</h1>
+  <h6>da elite São-Carlense</h6>
   <p>Planejamento acadêmico da USP com dados públicos versionados, consultas MCP e geração determinística de grades.</p>
 
   <p>
