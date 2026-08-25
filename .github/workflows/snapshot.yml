@@ -21,6 +21,8 @@ jobs:
         with:
           fetch-depth: 0
       - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.5"
       - run: uv sync --locked
       - name: Download previous snapshot when one exists
         env:
@@ -37,13 +39,13 @@ jobs:
         run: |
           args=(--output /tmp/matrusp.sqlite --artifacts /tmp/artifacts)
           if [ -f /tmp/previous.sqlite ]; then args+=(--previous /tmp/previous.sqlite); fi
-          uv run matrusp-mcp crawl "${args[@]}"
+          uv run --locked matrusp-mcp crawl "${args[@]}"
       - name: Promote release artifacts only after validation
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          uv run matrusp-mcp validate /tmp/matrusp.sqlite
-          snapshot_id="$(uv run python -c 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute("select snapshot_id from snapshot_metadata").fetchone()[0])' /tmp/matrusp.sqlite)"
+          uv run --locked matrusp-mcp validate /tmp/matrusp.sqlite
+          snapshot_id="$(uv run --locked python -c 'import sqlite3,sys; print(sqlite3.connect(sys.argv[1]).execute("select snapshot_id from snapshot_metadata").fetchone()[0])' /tmp/matrusp.sqlite)"
           cp /tmp/artifacts/matrusp-snapshot-${snapshot_id}.sqlite.gz .
           cp /tmp/artifacts/manifest-${snapshot_id}.json .
           cp /tmp/artifacts/SHA256SUMS .
