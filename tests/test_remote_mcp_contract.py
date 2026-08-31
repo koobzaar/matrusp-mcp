@@ -53,15 +53,14 @@ async def running_app(app: Any) -> AsyncIterator[None]:
 
 @asynccontextmanager
 async def remote_client(app: Any, base_url: str = "http://testserver") -> AsyncIterator[Client]:
-    async with running_app(app):
-        async with httpx2.AsyncClient(
-            transport=httpx2.ASGITransport(app=app), base_url=base_url
-        ) as http_client:
-            transport = streamable_http_client(
-                f"{base_url}/mcp", http_client=http_client, terminate_on_close=False
-            )
-            async with Client(transport, mode="legacy", read_timeout_seconds=10) as client:
-                yield client
+    async with httpx2.AsyncClient(
+        transport=httpx2.ASGITransport(app=app), base_url=base_url
+    ) as http_client:
+        transport = streamable_http_client(
+            f"{base_url}/mcp", http_client=http_client, terminate_on_close=False
+        )
+        async with Client(transport, mode="legacy", read_timeout_seconds=10) as client:
+            yield client
 
 
 def tool_error_payload(text: str) -> dict[str, str]:
@@ -80,30 +79,34 @@ async def test_remote_mcp_client_completes_lifecycle_and_reads_server_metadata(
 ) -> None:
     app = make_app(tmp_path)
 
-    async with remote_client(app) as client:
-        assert client.protocol_version
-        assert client.server_info is not None
-        assert client.server_info.name == "matrusp-mcp"
-        assert client.server_info.version == "0.1.0"
-        assert client.instructions is not None
-        assert "read-only" in client.instructions.casefold()
+    async with running_app(app):
+        async with remote_client(app) as client:
+            assert client.protocol_version
+            assert client.server_info is not None
+            assert client.server_info.name == "matrusp-mcp"
+            assert client.server_info.title == "MatrUSP MCP"
+            assert client.server_info.description
+            assert client.server_info.website_url == "https://github.com/koobzaar/matrusp-mcp"
+            assert client.server_info.version == "0.1.0"
+            assert client.instructions is not None
+            assert "read-only" in client.instructions.casefold()
 
-        tools = await client.list_tools()
-        assert [tool.name for tool in tools.tools] == list(TOOL_NAMES)
-        result = await client.call_tool("get_discipline", {"request": {"code": "MAC0101"}})
+            tools = await client.list_tools()
+            assert [tool.name for tool in tools.tools] == list(TOOL_NAMES)
+            result = await client.call_tool("get_discipline", {"request": {"code": "MAC0101"}})
 
-        assert result.is_error is False
-        assert result.structured_content is not None
-        assert result.structured_content["snapshot_id"] == "bootstrap-20260825"
-        assert result.content
-        assert json.loads(result.content[0].text) == result.structured_content
+            assert result.is_error is False
+            assert result.structured_content is not None
+            assert result.structured_content["snapshot_id"] == "bootstrap-20260825"
+            assert result.content
+            assert json.loads(result.content[0].text) == result.structured_content
 
-        resources = await client.list_resources()
-        assert [resource.uri for resource in resources.resources] == [
-            "matrusp://snapshot/manifest"
-        ]
-        manifest = await client.read_resource("matrusp://snapshot/manifest")
-        assert "AGPL-3.0-only" in manifest.contents[0].text
+            resources = await client.list_resources()
+            assert [resource.uri for resource in resources.resources] == [
+                "matrusp://snapshot/manifest"
+            ]
+            manifest = await client.read_resource("matrusp://snapshot/manifest")
+            assert "AGPL-3.0-only" in manifest.contents[0].text
 
 
 @pytest.mark.asyncio
@@ -112,8 +115,9 @@ async def test_remote_tool_discovery_exposes_valid_schemas_titles_and_read_only_
 ) -> None:
     app = make_app(tmp_path)
 
-    async with remote_client(app) as client:
-        tools = await client.list_tools()
+    async with running_app(app):
+        async with remote_client(app) as client:
+            tools = await client.list_tools()
 
     for tool in tools.tools:
         assert tool.title
@@ -132,16 +136,46 @@ async def test_remote_tool_discovery_exposes_valid_schemas_titles_and_read_only_
 
 
 @pytest.mark.asyncio
+async def test_remote_tools_all_return_structured_outputs(tmp_path: Path) -> None:
+    app = make_app(tmp_path)
+    calls = [
+        ("search_offerings", {"request": {"query": "MAC0101"}}),
+        ("get_discipline", {"request": {"code": "MAC0101"}}),
+        (
+            "find_gap_fillers",
+            {"request": {"day": "mon", "start_time": "09:00", "end_time": "13:00"}},
+        ),
+        ("check_schedule_conflicts", {"request": {}}),
+        ("generate_schedules", {"request": {"required_disciplines": ["MAC0101"]}}),
+        ("compare_schedules", {"request": {"alternatives": [[]]}}),
+        ("search_curricula", {"request": {"query": "comput"}}),
+        (
+            "get_curriculum",
+            {"request": {"curriculum_id": "curriculum:CC:bacharelado"}},
+        ),
+    ]
+
+    async with running_app(app):
+        async with remote_client(app) as client:
+            results = [await client.call_tool(name, arguments) for name, arguments in calls]
+
+    assert all(result.is_error is False for result in results)
+    assert all(result.structured_content is not None for result in results)
+    assert all(result.content for result in results)
+
+
+@pytest.mark.asyncio
 async def test_remote_tool_errors_are_model_readable_and_validation_is_enforced(
     tmp_path: Path,
 ) -> None:
     app = make_app(tmp_path)
 
-    async with remote_client(app) as client:
-        not_found = await client.call_tool(
-            "get_discipline", {"request": {"code": "DOES_NOT_EXIST"}}
-        )
-        invalid = await client.call_tool("search_offerings", {"request": {"limit": 0}})
+    async with running_app(app):
+        async with remote_client(app) as client:
+            not_found = await client.call_tool(
+                "get_discipline", {"request": {"code": "DOES_NOT_EXIST"}}
+            )
+            invalid = await client.call_tool("search_offerings", {"request": {"limit": 0}})
 
     assert not_found.is_error is True
     assert tool_error_payload(not_found.content[0].text) == {
@@ -153,30 +187,38 @@ async def test_remote_tool_errors_are_model_readable_and_validation_is_enforced(
 
 
 @pytest.mark.asyncio
-async def test_remote_endpoint_is_stateless_and_does_not_rate_limit_read_only_calls(
+async def test_remote_endpoint_is_stateless_and_accepts_repeated_read_only_calls(
     tmp_path: Path,
 ) -> None:
     app = make_app(tmp_path)
+    headers = {
+        "Accept": "application/json, text/event-stream",
+        "Content-Type": "application/json",
+        "MCP-Protocol-Version": "2025-03-26",
+    }
+    initialize = {
+        "jsonrpc": "2.0",
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2025-03-26",
+            "capabilities": {},
+            "clientInfo": {"name": "stateless-contract-test", "version": "1.0"},
+        },
+    }
 
-    async with remote_client(app) as first_client:
-        first = await first_client.call_tool(
-            "get_discipline", {"request": {"code": "MAC0101"}}
-        )
-    async with remote_client(app) as second_client:
-        second = await second_client.call_tool(
-            "get_discipline", {"request": {"code": "MAC0101"}}
-        )
-        results = [
-            await asyncio.wait_for(
-                second_client.call_tool("get_discipline", {"request": {"code": "MAC0101"}}),
-                timeout=2,
-            )
-            for _ in range(25)
-        ]
+    async with running_app(app):
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://testserver"
+        ) as client:
+            responses = [
+                await client.post(
+                    "/mcp", headers=headers, json={**initialize, "id": request_id}
+                )
+                for request_id in range(25)
+            ]
 
-    assert first.is_error is False
-    assert second.is_error is False
-    assert all(result.is_error is False for result in results)
+    assert all(response.status_code == 200 for response in responses)
+    assert all("mcp-session-id" not in response.headers for response in responses)
 
 
 @pytest.mark.asyncio
@@ -219,14 +261,14 @@ async def test_streamable_http_uses_json_responses_and_allows_405_get_for_statel
 async def test_http_accepts_configured_origin_and_rejects_wrong_content_type(
     tmp_path: Path,
 ) -> None:
-    app = make_app(tmp_path, allowed_origins=("https://chatgpt.com",))
+    app = make_app(tmp_path, allowed_origins=("https://chatgpt.com:*",))
 
     async with running_app(app):
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://testserver"
         ) as client:
             allowed_origin = await client.get(
-                "/healthz", headers={"Origin": "https://chatgpt.com"}
+                "/healthz", headers={"Origin": "https://chatgpt.com:443"}
             )
             wrong_content_type = await client.post(
                 "/mcp",
@@ -290,7 +332,10 @@ async def test_vercel_app_accepts_a_platform_host_with_the_real_mcp_client(
         },
     )
 
-    async with remote_client(app, "https://matrusp-preview.vercel.app") as client:
-        result = await client.call_tool("get_discipline", {"request": {"code": "MAC0101"}})
+    async with running_app(app):
+        async with remote_client(app, "https://matrusp-preview.vercel.app") as client:
+            result = await client.call_tool(
+                "get_discipline", {"request": {"code": "MAC0101"}}
+            )
 
     assert result.is_error is False

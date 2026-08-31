@@ -17,7 +17,7 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 def fixture(name: str) -> str:
-    return (FIXTURES / name).read_text()
+    return (FIXTURES / name).read_text(encoding="utf-8")
 
 
 def test_units_and_candidates_accept_unquoted_attributes_and_numeric_codes() -> None:
