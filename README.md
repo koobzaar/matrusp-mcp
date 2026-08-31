@@ -114,7 +114,7 @@ Todas as tools são read-only, idempotentes e retornam um envelope com `snapshot
 | Tools, inputs, respostas, erros, manifesto | [Referência MCP](docs/mcp-reference.md) |
 | Intervalos, conflitos, bundles, top-K, score | [Semântica temporal e ranking](docs/temporal-and-ranking.md) |
 | JupiterWeb, parsers, SQLite v1, artefatos | [Snapshots e crawler](docs/snapshots-and-crawler.md) |
-| ASGI, Host, Origin, body limit, rate limit | [Segurança HTTP](docs/http-security.md) |
+| ASGI, Host, Origin e limite de corpo | [Segurança HTTP](docs/http-security.md) |
 | uv, testes, CI, live contract, releases, GHCR | [Desenvolvimento e releases](docs/development-and-releases.md) |
 
 ## Tecnologias

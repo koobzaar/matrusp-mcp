@@ -56,8 +56,6 @@ omit = [
   "*/bootstrap.py",
   "*/campus.py",
   "*/cli.py",
-  "*/http_server.py",
-  "*/mcp_server.py",
   "*/crawler/crawler.py",
 ]
 

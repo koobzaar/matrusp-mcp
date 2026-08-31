@@ -78,7 +78,7 @@ completo baixado do JupiterWeb não deve ser commitado.
 | temporal | intervalos semiabertos, datas e incerteza |
 | repository/service | FTS, cursores, filtros, envelopes e erros |
 | engine | top-K, empates, orçamento, restrições e força bruta |
-| HTTP | Host/Origin, corpos, rate limit, proxy e requisições normais |
+| HTTP | Host/Origin, corpos e requisições normais |
 | snapshot | integridade, foreign keys, manifesto, delta e artefatos |
 | MCP | ferramentas, recurso, anotações e transportes |
 

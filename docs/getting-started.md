@@ -83,7 +83,6 @@ ambiente são descritos em [Segurança e transporte HTTP](http-security.md).
 | `MATRUSP_SNAPSHOT` | caminho do snapshot SQLite | `data/matrusp.sqlite` |
 | `MATRUSP_ALLOWED_HOSTS` | lista CSV de valores `Host` permitidos | somente hosts locais |
 | `MATRUSP_ALLOWED_ORIGINS` | lista CSV de origens permitidas | nenhuma origem de navegador |
-| `MATRUSP_TRUSTED_PROXY_CIDRS` | CIDRs autorizados a fornecer `X-Forwarded-For` | nenhum |
 
 Argumentos de linha de comando prevalecem sobre os padrões. `--snapshot` também prevalece sobre
 `MATRUSP_SNAPSHOT`.
@@ -131,7 +130,7 @@ deployments de Preview e Production sem liberar hosts arbitrários.
 
 `MATRUSP_SNAPSHOT=data/matrusp.sqlite` é opcional. Use `MATRUSP_ALLOWED_HOSTS` apenas para acrescentar
 domínios que não estejam nas variáveis da plataforma, como um domínio personalizado adicional.
-`MATRUSP_ALLOWED_ORIGINS` e `MATRUSP_TRUSTED_PROXY_CIDRS` permanecem opt-in.
+`MATRUSP_ALLOWED_ORIGINS` permanece opt-in.
 
 Depois do deployment, verifique:
 

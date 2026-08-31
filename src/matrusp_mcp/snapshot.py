@@ -8,6 +8,7 @@ import json
 import os
 import sqlite3
 import tempfile
+from contextlib import closing
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -537,15 +538,17 @@ def build_snapshot(data: SnapshotData, destination: Path) -> None:
     os.close(handle)
     temporary = Path(temporary_name)
     try:
-        with sqlite3.connect(temporary) as connection:
+        with closing(sqlite3.connect(temporary)) as connection:
             connection.execute("PRAGMA foreign_keys=ON")
             try:
                 _insert(connection, data)
             except sqlite3.IntegrityError as error:
                 raise ValueError("foreign key validation failed") from error
-            report = validate_snapshot(temporary)
-            if not report.ok:
-                raise ValueError("; ".join(report.errors))
+        # Validate only after the writer has been closed so the temporary file
+        # can be atomically promoted on Windows as well as POSIX.
+        report = validate_snapshot(temporary)
+        if not report.ok:
+            raise ValueError("; ".join(report.errors))
         os.replace(temporary, destination)
     finally:
         temporary.unlink(missing_ok=True)
@@ -605,7 +608,7 @@ def validate_snapshot(path: Path) -> ValidationReport:
     errors: list[str] = []
     counts: dict[str, int] = {}
     try:
-        with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as connection:
+        with closing(sqlite3.connect(f"file:{path}?mode=ro", uri=True)) as connection:
             connection.execute("PRAGMA foreign_keys=ON")
             if connection.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                 errors.append("sqlite integrity check failed")

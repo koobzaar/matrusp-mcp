@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import TypeVar, cast
 
 import anyio
+from anyio.to_thread import run_sync
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.shared.message import SessionMessage
@@ -64,44 +65,94 @@ def create_server(snapshot_path: Path | None = None) -> MCPServer:
     annotations = ToolAnnotations(
         read_only_hint=True, destructive_hint=False, idempotent_hint=True, open_world_hint=False
     )
-    server = MCPServer("matrusp-mcp", title="MatrUSP MCP", version="0.1.0")
+    server = MCPServer(
+        "matrusp-mcp",
+        title="MatrUSP MCP",
+        description="Read-only queries over versioned public USP academic snapshot data.",
+        instructions=(
+            "Use these read-only tools to query the versioned USP academic snapshot. "
+            "Every response includes snapshot provenance and may include data warnings."
+        ),
+        website_url="https://github.com/koobzaar/matrusp-mcp",
+        version="0.1.0",
+    )
 
-    @server.tool(name="search_offerings", annotations=annotations, structured_output=True)
+    @server.tool(
+        name="search_offerings",
+        title="Search offerings",
+        annotations=annotations,
+        structured_output=True,
+    )
     async def search_offerings(request: SearchOfferingsInput) -> PublicResponse:
         """Busca ofertas correntes (Search current offerings), com filtros temporais e de professor."""
         return _call(service, "search_offerings", request)
 
-    @server.tool(name="get_discipline", annotations=annotations, structured_output=True)
+    @server.tool(
+        name="get_discipline",
+        title="Get discipline",
+        annotations=annotations,
+        structured_output=True,
+    )
     async def get_discipline(request: GetDisciplineInput) -> PublicResponse:
         """Obtém uma disciplina versionada (Get a versioned discipline), inclusive stubs sem oferta."""
         return _call(service, "get_discipline", request)
 
-    @server.tool(name="find_gap_fillers", annotations=annotations, structured_output=True)
+    @server.tool(
+        name="find_gap_fillers",
+        title="Find gap fillers",
+        annotations=annotations,
+        structured_output=True,
+    )
     async def find_gap_fillers(request: FindGapFillersInput) -> PublicResponse:
         """Encontra ofertas que cabem ou interceptam uma janela (Find gap fillers)."""
         return _call(service, "find_gap_fillers", request)
 
-    @server.tool(name="check_schedule_conflicts", annotations=annotations, structured_output=True)
+    @server.tool(
+        name="check_schedule_conflicts",
+        title="Check schedule conflicts",
+        annotations=annotations,
+        structured_output=True,
+    )
     async def check_schedule_conflicts(request: CheckConflictsInput) -> PublicResponse:
         """Verifica conflitos, incluindo pares desconhecidos (Check schedule conflicts)."""
         return _call(service, "check_schedule_conflicts", request)
 
-    @server.tool(name="generate_schedules", annotations=annotations, structured_output=True)
+    @server.tool(
+        name="generate_schedules",
+        title="Generate schedules",
+        annotations=annotations,
+        structured_output=True,
+    )
     async def generate_schedules(request: GenerateSchedulesInput) -> PublicResponse:
         """Gera combinações determinísticas top-K (Generate deterministic schedules)."""
         return _call(service, "generate_schedules", request)
 
-    @server.tool(name="compare_schedules", annotations=annotations, structured_output=True)
+    @server.tool(
+        name="compare_schedules",
+        title="Compare schedules",
+        annotations=annotations,
+        structured_output=True,
+    )
     async def compare_schedules(request: CompareSchedulesInput) -> PublicResponse:
         """Compara alternativas (Compare schedule alternatives) com a mesma semântica temporal."""
         return _call(service, "compare_schedules", request)
 
-    @server.tool(name="search_curricula", annotations=annotations, structured_output=True)
+    @server.tool(
+        name="search_curricula",
+        title="Search curricula",
+        annotations=annotations,
+        structured_output=True,
+    )
     async def search_curricula(request: SearchCurriculaInput) -> PublicResponse:
         """Busca currículos atuais (Search current curricula)."""
         return _call(service, "search_curricula", request)
 
-    @server.tool(name="get_curriculum", annotations=annotations, structured_output=True)
+    @server.tool(
+        name="get_curriculum",
+        title="Get curriculum",
+        annotations=annotations,
+        structured_output=True,
+    )
     async def get_curriculum(request: GetCurriculumInput) -> PublicResponse:
         """Obtém a estrutura de um currículo (Get curriculum structure)."""
         return _call(service, "get_curriculum", request)
@@ -122,12 +173,24 @@ async def run_stdio(server: MCPServer) -> None:
     support that claim reliably; memory streams preserve the same MCP framing
     and keep the public server/tool layer identical.
     """
+    for stream in (sys.stdin, sys.stdout):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(encoding="utf-8")
     inbound_send, inbound_receive = anyio.create_memory_object_stream[SessionMessage | Exception](256)
     outbound_send, outbound_receive = anyio.create_memory_object_stream[SessionMessage](0)
 
     loop = asyncio.get_running_loop()
     standard_input = sys.stdin.fileno()
     input_open = True
+
+    def dispatch_line(line: str) -> None:
+        try:
+            message = jsonrpc_message_adapter.validate_json(line, by_name=False)
+        except Exception as error:
+            inbound_send.send_nowait(error)
+        else:
+            inbound_send.send_nowait(SessionMessage(message))
 
     def read_stdin() -> None:
         nonlocal input_open
@@ -140,12 +203,17 @@ async def run_stdio(server: MCPServer) -> None:
             close_task = loop.create_task(inbound_send.aclose())
             close_task.add_done_callback(lambda _: None)
             return
-        try:
-            message = jsonrpc_message_adapter.validate_json(line, by_name=False)
-        except Exception as error:
-            inbound_send.send_nowait(error)
-        else:
-            inbound_send.send_nowait(SessionMessage(message))
+        dispatch_line(line)
+
+    async def read_stdin_thread() -> None:
+        nonlocal input_open
+        while input_open:
+            line = await run_sync(sys.stdin.readline)
+            if not line:
+                input_open = False
+                await inbound_send.aclose()
+                return
+            dispatch_line(line)
 
     async def write_stdout() -> None:
         async with outbound_receive:
@@ -155,7 +223,13 @@ async def run_stdio(server: MCPServer) -> None:
                 sys.stdout.flush()
 
     async with anyio.create_task_group() as task_group:
-        loop.add_reader(standard_input, read_stdin)
+        reader_registered = False
+        try:
+            loop.add_reader(standard_input, read_stdin)
+        except NotImplementedError:
+            task_group.start_soon(read_stdin_thread)
+        else:
+            reader_registered = True
         task_group.start_soon(write_stdout)
         try:
             await server._lowlevel_server.run(
@@ -164,6 +238,6 @@ async def run_stdio(server: MCPServer) -> None:
                 server._lowlevel_server.create_initialization_options(),
             )
         finally:
-            if input_open:
+            if reader_registered and input_open:
                 loop.remove_reader(standard_input)
             await inbound_send.aclose()

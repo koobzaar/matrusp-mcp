@@ -43,5 +43,4 @@ def create_vercel_app(
         snapshot,
         allowed_hosts=_allowed_hosts(values),
         allowed_origins=_csv(values, "MATRUSP_ALLOWED_ORIGINS"),
-        trusted_proxy_cidrs=_csv(values, "MATRUSP_TRUSTED_PROXY_CIDRS"),
     )

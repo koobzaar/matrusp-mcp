@@ -74,7 +74,6 @@ def main(argv: list[str] | None = None) -> int:
                 args.snapshot,
                 allowed_hosts=_csv_env("MATRUSP_ALLOWED_HOSTS"),
                 allowed_origins=_csv_env("MATRUSP_ALLOWED_ORIGINS"),
-                trusted_proxy_cidrs=_csv_env("MATRUSP_TRUSTED_PROXY_CIDRS"),
             ),
             host=args.host,
             port=args.port,
