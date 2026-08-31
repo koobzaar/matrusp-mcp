@@ -154,6 +154,29 @@ def test_current_curriculum_index_supports_links_options_and_rejects_historical_
     ]
     assert values[0].unit_code == "45"
     assert values[0].campus == "Cidade Universitária"
+    assert values[0].name == "Ciência"
+
+
+def test_curriculum_index_reads_real_adjacent_name_and_period_cells() -> None:
+    parsed = parse_curriculum_index(
+        """
+        <table>
+          <tr><td>Campus: São Paulo - Cidade Universitária</td></tr>
+          <tr>
+            <td><a href="listarGradeCurricular?codcg=3&codcur=3057&codhab=3000&tipo=N">
+              3057 3000
+            </a></td>
+            <td>Habilitação: Engenharia de Petróleo</td>
+            <td>integral</td>
+          </tr>
+        </table>
+        """,
+        UnitCandidate("3", "Escola Politécnica"),
+    )
+
+    assert len(parsed) == 1
+    assert parsed[0].name == "Habilitação: Engenharia de Petróleo"
+    assert parsed[0].period_code == "integral"
 
 
 def test_curriculum_index_extracts_source_campus_metadata() -> None:
@@ -187,6 +210,23 @@ def test_curriculum_detail_tracks_nature_period_items_and_following_requirements
         ("unknown", "livre"),
     ]
     assert "ATPA" not in {item.discipline_code for item in parsed.items}
+
+
+def test_real_empty_curriculum_is_distinguished_from_unrecognized_html() -> None:
+    candidate = CandidateCurriculum(
+        "3057", "3000", "Habilitação: Engenharia de Petróleo", "3", period_code="integral"
+    )
+
+    explicit_empty = parse_curriculum_detail(
+        fixture("curriculum_empty_3057_3000.html"), candidate
+    )
+    unrecognized = parse_curriculum_detail(
+        "<html><table><tr><td>Grade Curricular</td></tr></table></html>", candidate
+    )
+
+    assert explicit_empty.status == "no_current_curriculum"
+    assert explicit_empty.items == ()
+    assert unrecognized.status == "invalid_source"
 
 
 def test_discipline_detail_uses_heading_content_and_prefers_ementa() -> None:

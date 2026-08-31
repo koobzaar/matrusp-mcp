@@ -4,6 +4,7 @@ import os
 
 import pytest
 
+from matrusp_mcp.crawler.models import CandidateCurriculum
 from matrusp_mcp.crawler.parsers import (
     parse_curriculum_detail,
     parse_curriculum_index,
@@ -68,14 +69,36 @@ def test_live_contract_is_explicitly_opt_in() -> None:
             if item.course_code == "45052" and item.habilitation_code == "0"
         )
         assert curriculum_candidate.campus
+        assert curriculum_candidate.period_code == "integral"
         assert curriculum_candidate.detail_url is not None
         response = page.goto(
             curriculum_candidate.detail_url, wait_until="domcontentloaded", timeout=60_000
         )
         assert response is not None and response.status < 500
         curriculum = parse_curriculum_detail(page.content(), curriculum_candidate)
+        assert curriculum.status == "confirmed"
         assert len(curriculum.items) >= 10
         assert all(item.discipline_code != "ATPA" for item in curriculum.items)
+
+        regression_candidate = CandidateCurriculum(
+            "3057",
+            "3000",
+            "Habilitação: Engenharia de Petróleo",
+            "3",
+            "https://uspdigital.usp.br/jupiterweb/"
+            "listarGradeCurricular?codcg=3&codcur=3057&codhab=3000&tipo=N",
+            "São Paulo - Cidade Universitária",
+            "integral",
+        )
+        response = page.goto(
+            regression_candidate.detail_url,
+            wait_until="domcontentloaded",
+            timeout=60_000,
+        )
+        assert response is not None and response.status < 500
+        regression = parse_curriculum_detail(page.content(), regression_candidate)
+        assert regression.status in {"confirmed", "no_current_curriculum"}
+        assert bool(regression.items) is (regression.status == "confirmed")
 
         discipline_candidate = next(item for item in disciplines if item.code == "MAC0110")
         response = page.goto(

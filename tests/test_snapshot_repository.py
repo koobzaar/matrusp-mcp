@@ -250,18 +250,49 @@ def test_validate_corrupt_and_missing_snapshot(tmp_path: Path) -> None:
     assert validate_snapshot(broken).ok is False
 
 
-def test_snapshot_checksum_is_stable(snapshot: Path) -> None:
-    assert len(snapshot_sha256(snapshot)) == 64
-
-
 def test_previous_cache_and_release_artifacts_are_reproducible(snapshot: Path, tmp_path: Path) -> None:
     cache = load_previous_cache(snapshot)
     assert ("MAC0001", "1") in cache.versions
-    artifacts = publish_artifacts(snapshot, tmp_path / "release")
+    artifacts = publish_artifacts(snapshot, tmp_path / "release-1")
+    repeated = publish_artifacts(snapshot, tmp_path / "release-2")
     assert all(Path(value).exists() for key, value in artifacts.items() if key != "snapshot_id")
     assert "matrusp-snapshot-test-snapshot.sqlite.gz" in str(artifacts["snapshot"])
+    for key in ("snapshot", "manifest", "checksums"):
+        assert Path(artifacts[key]).read_bytes() == Path(repeated[key]).read_bytes()
+    expected_checksums = (
+        f"{snapshot_sha256(Path(artifacts['snapshot']))}  {Path(artifacts['snapshot']).name}\n"
+        f"{snapshot_sha256(Path(artifacts['manifest']))}  {Path(artifacts['manifest']).name}\n"
+    )
+    assert Path(artifacts["checksums"]).read_text(encoding="utf-8") == expected_checksums
     with pytest.raises(ValueError, match="invalid snapshot"):
         publish_artifacts(tmp_path / "missing.sqlite", tmp_path / "bad-release")
+
+
+def test_validation_detects_silent_loss_of_curriculum_items(snapshot: Path) -> None:
+    with sqlite3.connect(snapshot) as connection:
+        connection.execute("DELETE FROM prerequisites")
+        connection.execute("DELETE FROM curriculum_items")
+
+    report = validate_snapshot(snapshot)
+
+    assert not report.ok
+    assert "manifest count mismatch: curriculum_items" in report.errors
+
+
+def test_empty_curricula_require_an_explicit_collection_state(tmp_path: Path) -> None:
+    data = sample_data()
+    empty_curriculum = replace(data.curricula[0], items=())
+    unclassified = replace(data, curricula=(empty_curriculum,))
+
+    with pytest.raises(ValueError, match="unclassified empty curricula"):
+        build_snapshot(unclassified, tmp_path / "unclassified.sqlite")
+
+    classified = replace(
+        unclassified,
+        metadata=replace(data.metadata, state_counts={"no_current_curriculum": 1}),
+    )
+    build_snapshot(classified, tmp_path / "classified.sqlite")
+    assert validate_snapshot(tmp_path / "classified.sqlite").ok
 
 
 def test_unfiltered_large_snapshot_requires_a_search_filter(tmp_path: Path) -> None:
@@ -341,3 +372,14 @@ def test_large_snapshot_delta_requires_explicit_acceptance(snapshot: Path, tmp_p
     with pytest.raises(ValueError, match="large delta"):
         enforce_count_delta(snapshot, reduced)
     enforce_count_delta(snapshot, reduced, accept_large=True)
+
+
+def test_large_curriculum_delta_requires_explicit_acceptance(
+    snapshot: Path, tmp_path: Path
+) -> None:
+    without_curricula = tmp_path / "without-curricula.sqlite"
+    build_snapshot(replace(sample_data(), curricula=()), without_curricula)
+
+    with pytest.raises(ValueError, match="large delta for curricula"):
+        enforce_count_delta(snapshot, without_curricula)
+    enforce_count_delta(snapshot, without_curricula, accept_large=True)

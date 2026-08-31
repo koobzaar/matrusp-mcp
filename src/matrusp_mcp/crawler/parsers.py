@@ -199,6 +199,50 @@ def _curriculum_candidate_from_link(
     )
 
 
+def _with_curriculum_row_metadata(
+    link: Tag, candidate: CandidateCurriculum
+) -> CandidateCurriculum:
+    """Read the description and period that some JupiterWeb indexes place beside the link."""
+    row = link.find_parent("tr")
+    cell = link.find_parent(["th", "td"])
+    if row is None or cell is None or cell.find_parent("tr") is not row:
+        return candidate
+    row_cells = row.find_all(["th", "td"], recursive=False)
+    cell_index = next(
+        (index for index, row_cell in enumerate(row_cells) if row_cell is cell),
+        None,
+    )
+    if cell_index is None:
+        return candidate
+    following = [
+        value
+        for row_cell in row_cells[cell_index + 1 :]
+        if (value := _text(row_cell))
+    ]
+    link_identifier = re.sub(r"[\s:;|/-]+", " ", _text(link)).strip()
+    identifiers = {
+        candidate.course_code,
+        f"{candidate.course_code} {candidate.habilitation_code}",
+    }
+    name = candidate.name
+    period = candidate.period_code
+    if link_identifier in identifiers and following:
+        name = following[0]
+        if len(following) >= 2:
+            period = period or following[-1]
+    elif following:
+        period = period or following[-1]
+    return CandidateCurriculum(
+        candidate.course_code,
+        candidate.habilitation_code,
+        name,
+        candidate.unit_code,
+        candidate.detail_url,
+        candidate.campus,
+        period,
+    )
+
+
 def parse_curriculum_index(
     document: str | bytes,
     unit: UnitCandidate | None = None,
@@ -224,8 +268,9 @@ def parse_curriculum_index(
             campus=campus,
         )
         if candidate is not None:
+            candidate = _with_curriculum_row_metadata(link, candidate)
             key = (candidate.course_code, candidate.habilitation_code, candidate.unit_code)
-            values[key] = candidate
+            values.setdefault(key, candidate)
     return tuple(
         sorted(values.values(), key=lambda item: (item.course_code, item.habilitation_code, item.name))
     )
@@ -321,6 +366,37 @@ def _curriculum_discipline_row(row: Tag) -> tuple[str, list[str]] | None:
             continue
         return code, values
     return None
+
+
+def _is_explicitly_empty_curriculum(soup: BeautifulSoup) -> bool:
+    """Recognize JupiterWeb's current-curriculum placeholder without accepting arbitrary HTML."""
+    workload = soup.find("table", id="tabelaCargaHoraria")
+    if not isinstance(workload, Tag):
+        return False
+    has_grade_heading = any(
+        normalize_text(value) == "grade curricular" for value in soup.stripped_strings
+    )
+    if not has_grade_heading:
+        return False
+    for row in _owned_rows(workload):
+        values = _cells(row)
+        label_index = next(
+            (
+                index
+                for index, value in enumerate(values)
+                if "total de carga horaria em disciplinas da grade" in normalize_text(value)
+            ),
+            None,
+        )
+        if label_index is None:
+            continue
+        totals = [
+            int(value)
+            for value in values[label_index + 1 :]
+            if re.fullmatch(r"\s*\d+\s*", value)
+        ]
+        return len(totals) >= 3 and all(value == 0 for value in totals)
+    return False
 
 
 def parse_curriculum_detail(
@@ -426,11 +502,22 @@ def parse_curriculum_detail(
         metadata["campus"],
         metadata["period"],
     )
+    if items:
+        status = "confirmed"
+        message = None
+    elif _is_explicitly_empty_curriculum(soup):
+        status = "no_current_curriculum"
+        message = "source explicitly reports zero workload and no curriculum items"
+    else:
+        status = "invalid_source"
+        message = "curriculum has no parseable items and is not an explicit empty placeholder"
     return ParsedCurriculum(
         candidate=normalized_candidate,
         items=tuple(sorted(items, key=lambda item: (item.ideal_period, item.discipline_code))),
         source_campus_name=metadata["campus"],
         source_period_code=metadata["period"],
+        status=status,
+        message=message,
     )
 
 

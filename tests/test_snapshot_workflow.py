@@ -20,12 +20,7 @@ def test_snapshot_workflow_promotes_only_after_validation_and_pushes_for_vercel(
 
     assert validation < promotion < docker_gate < commit < release
     assert "git add data/matrusp.sqlite" in workflow
-    assert 'git commit -m "chore(snapshot): publish ${SNAPSHOT_ID} [skip ci]"' in workflow
     assert "git push origin HEAD:main" in workflow
-
-
-def test_snapshot_workflow_commits_only_when_the_snapshot_changed() -> None:
-    workflow = _workflow_text()
     commit_start = workflow.index("- name: Commit snapshot for Vercel deployment")
     release_start = workflow.index("- name: Create immutable GitHub Release")
     commit_step = workflow[commit_start:release_start]

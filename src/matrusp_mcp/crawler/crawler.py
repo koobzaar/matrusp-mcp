@@ -170,19 +170,25 @@ class JupiterCrawler:
             )
             raise
         parsed = parse_curriculum_detail(body, candidate)
-        if not parsed.items:
+        valid_status = (
+            (parsed.status == "confirmed" and bool(parsed.items))
+            or (parsed.status == "no_current_curriculum" and not parsed.items)
+        )
+        if not valid_status:
             self.states.append(
                 CandidateState(
                     f"{candidate.course_code}:{candidate.habilitation_code}",
                     "parse_error",
-                    "curriculum has no parseable items",
+                    parsed.message or "inconsistent curriculum parser result",
                 )
             )
             raise CrawlError(
                 f"parse_error: curriculum {candidate.course_code}:{candidate.habilitation_code}"
             )
         self.states.append(
-            CandidateState(f"{candidate.course_code}:{candidate.habilitation_code}", "confirmed")
+            CandidateState(
+                f"{candidate.course_code}:{candidate.habilitation_code}", parsed.status
+            )
         )
         return parsed
 
@@ -249,6 +255,8 @@ class JupiterCrawler:
                     key=lambda item: (item.course_code, item.habilitation_code, item.unit_code or ""),
                 )
             )
+            if not curriculum_candidates:
+                raise CrawlError("invalid_source: no curriculum candidates")
         parsed_curricula = (
             await asyncio.gather(*(self._fetch_curriculum(item) for item in curriculum_candidates))
             if curriculum_candidates

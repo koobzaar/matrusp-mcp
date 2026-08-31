@@ -17,6 +17,32 @@ from .domain import Bundle, Curriculum, Discipline, OfferingHistory, Section, Un
 
 SCHEMA_VERSION = 1
 
+_CORE_MANIFEST_COUNT_TABLES = (
+    "units",
+    "disciplines",
+    "sections",
+    "meetings",
+    "bundles",
+    "curricula",
+)
+_CONTENT_COUNT_TABLES = (
+    "units",
+    "disciplines",
+    "discipline_versions",
+    "discipline_units",
+    "sections",
+    "meetings",
+    "professors",
+    "vacancies",
+    "section_links",
+    "bundles",
+    "bundle_sections",
+    "curricula",
+    "curriculum_items",
+    "prerequisites",
+    "offering_history",
+)
+
 
 def merge_offering_history(
     previous: dict[tuple[str, str], tuple[str, str, int]],
@@ -118,7 +144,7 @@ def enforce_count_delta(previous: Path, current: Path, *, accept_large: bool = F
     with sqlite3.connect(f"file:{previous}?mode=ro", uri=True) as old_connection, sqlite3.connect(
         f"file:{current}?mode=ro", uri=True
     ) as new_connection:
-        for table in ("disciplines", "sections"):
+        for table in ("disciplines", "sections", "curricula", "curriculum_items"):
             old_count = int(old_connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0])
             new_count = int(new_connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0])
             if old_count == 0:
@@ -506,7 +532,7 @@ def _insert(connection: sqlite3.Connection, data: SnapshotData) -> None:
     )
     counts = {
         table: int(connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0])
-        for table in ("units", "disciplines", "sections", "meetings", "bundles", "curricula")
+        for table in _CONTENT_COUNT_TABLES
     }
     manifest = _manifest(data, counts)
     connection.execute(
@@ -641,35 +667,72 @@ def validate_snapshot(path: Path) -> ValidationReport:
             for table in required_tables:
                 if table not in actual_tables:
                     errors.append(f"required table missing: {table}")
-            for table in ("units", "disciplines", "sections", "meetings", "bundles", "curricula"):
+            for table in _CONTENT_COUNT_TABLES:
                 if table not in actual_tables:
                     continue
                 counts[table] = int(
                     connection.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
                 )
-            row = connection.execute("SELECT manifest_json FROM snapshot_metadata").fetchone()
+            row = connection.execute(
+                "SELECT state_counts_json, manifest_json FROM snapshot_metadata"
+            ).fetchone()
             if row is None:
                 errors.append("manifest missing")
             else:
-                manifest = json.loads(row[0])
+                state_counts = json.loads(row[0])
+                manifest = json.loads(row[1])
+                if not isinstance(state_counts, dict):
+                    errors.append("invalid state counts")
+                    state_counts = {}
+                if not isinstance(manifest, dict):
+                    errors.append("invalid manifest")
+                    manifest = {}
                 if manifest.get("schema_version") != SCHEMA_VERSION:
                     errors.append("schema version mismatch")
+                if manifest.get("state_counts") != state_counts:
+                    errors.append("manifest state counts mismatch")
                 manifest_counts = manifest.get("counts", {})
-                if isinstance(manifest_counts, dict):
+                if not isinstance(manifest_counts, dict):
+                    errors.append("invalid manifest counts")
+                else:
                     for table, count in counts.items():
-                        if manifest_counts.get(table) != count:
+                        if (
+                            table in _CORE_MANIFEST_COUNT_TABLES or table in manifest_counts
+                        ) and manifest_counts.get(table) != count:
                             errors.append(f"manifest count mismatch: {table}")
-            invalid_states = connection.execute(
-                "SELECT DISTINCT schedule_status FROM sections "
-                "WHERE schedule_status NOT IN ('complete', 'partial', 'unknown')"
-            ).fetchall()
-            if invalid_states:
-                errors.append("invalid schedule status")
-            invalid_selectable = connection.execute(
-                "SELECT count(*) FROM bundles WHERE selectable = 1 AND schedule_status != 'complete'"
-            ).fetchone()[0]
-            if invalid_selectable:
-                errors.append("incomplete bundle marked selectable")
+                if "curricula" in actual_tables and "curriculum_items" in actual_tables:
+                    empty_curricula = int(
+                        connection.execute(
+                            "SELECT count(*) FROM curricula c WHERE NOT EXISTS "
+                            "(SELECT 1 FROM curriculum_items i WHERE i.curriculum_id = c.id)"
+                        ).fetchone()[0]
+                    )
+                    classified_empty = state_counts.get("no_current_curriculum", 0)
+                    if classified_empty != empty_curricula:
+                        if empty_curricula:
+                            errors.append(
+                                "unclassified empty curricula: "
+                                f"found={empty_curricula}, classified={classified_empty}"
+                            )
+                        else:
+                            errors.append(
+                                "empty curriculum state count mismatch: "
+                                f"found=0, classified={classified_empty}"
+                            )
+            if "sections" in actual_tables:
+                invalid_states = connection.execute(
+                    "SELECT DISTINCT schedule_status FROM sections "
+                    "WHERE schedule_status NOT IN ('complete', 'partial', 'unknown')"
+                ).fetchall()
+                if invalid_states:
+                    errors.append("invalid schedule status")
+            if "bundles" in actual_tables:
+                invalid_selectable = connection.execute(
+                    "SELECT count(*) FROM bundles "
+                    "WHERE selectable = 1 AND schedule_status != 'complete'"
+                ).fetchone()[0]
+                if invalid_selectable:
+                    errors.append("incomplete bundle marked selectable")
             for table, columns in {
                 "discipline_fts": ("code", "name", "department"),
                 "professor_fts": ("section_id", "display_name", "normalized_name"),

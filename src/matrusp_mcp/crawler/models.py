@@ -42,6 +42,8 @@ class ParsedCurriculum:
     items: tuple[CurriculumItem, ...]
     source_campus_name: str | None = None
     source_period_code: str | None = None
+    status: str = "confirmed"
+    message: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

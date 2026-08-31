@@ -39,7 +39,7 @@ uv run --locked matrusp-mcp crawl \
 | `--output` | destino obrigatório do novo SQLite |
 | `--previous` | reutiliza versões e mescla histórico do snapshot anterior |
 | `--concurrency` | `1..16`, padrão `8` |
-| `--accept-large-delta` | autoriza variação superior a 20% em disciplinas ou turmas |
+| `--accept-large-delta` | autoriza variação superior a 20% em disciplinas, turmas, currículos ou itens curriculares |
 | `--artifacts` | publica gzip, manifesto e checksums após validação |
 
 Sem `--previous`, o banco é construído diretamente por publicação atômica. Com um snapshot
@@ -96,6 +96,10 @@ como não selecionáveis.
 São coletados somente currículos atuais com `tipo=N`; grades históricas `tipo=V` não entram no
 snapshot corrente.
 
+O índice atual tem duas formas legítimas: alguns links já contêm o nome do curso; outros exibem
+somente `curso habilitação` e deixam o nome e o período em células adjacentes. Esses metadados são
+preservados antes da consulta da grade. Links duplicados mantêm a primeira descrição observada.
+
 O parser curricular mantém estado de natureza e período ideal, aceita códigos numéricos ou
 alfanuméricos apenas em linhas com forma de disciplina e ignora títulos como `ATPA`. Relações são
 interpretadas assim:
@@ -109,6 +113,13 @@ interpretadas assim:
 
 Linhas seguintes de pré-requisito são anexadas à disciplina anterior, e relações duplicadas são
 eliminadas. O índice também fornece metadados de campus.
+
+Uma página de grade sem itens só é aceita quando a própria resposta contém simultaneamente o
+cabeçalho de grade, a tabela de carga horária e total explicitamente zero. O currículo continua
+presente no snapshot com `items=[]` e entra em `state_counts` como `no_current_curriculum`. HTML
+vazio, páginas de erro ou qualquer forma não reconhecida permanecem `parse_error` e abortam a
+coleta. A descoberta global de zero currículos atuais também aborta, em vez de publicar um domínio
+silenciosamente vazio.
 
 Detalhes de disciplina são lidos por cabeçalho e conteúdo seguinte. `Ementa` tem prioridade como
 resumo, com fallback para `Conteúdo Programático`; título, departamento, créditos e `Objetivos`
@@ -156,6 +167,8 @@ A validação verifica:
 - `PRAGMA foreign_key_check`;
 - presença das tabelas obrigatórias;
 - versão de schema e contagens contra o manifesto;
+- contagens de todas as tabelas de conteúdo produzidas pelo builder, inclusive itens curriculares;
+- correspondência entre currículos vazios e o estado explícito `no_current_curriculum`;
 - estados `complete`, `partial` e `unknown`;
 - inexistência de bundle incompleto marcado selecionável;
 - tabelas virtuais e colunas FTS5 esperadas.
