@@ -187,7 +187,9 @@ atomicamente. `SHA256SUMS` cobre o snapshot comprimido e o manifesto.
 
 ## Snapshot de desenvolvimento
 
-`data/matrusp.sqlite` é pequeno e serve a testes locais, validação e build da imagem. A atualização
-de produção pertence ao workflow de release; mudanças de código não devem regenerar esse arquivo.
+`data/matrusp.sqlite` é pequeno e serve a testes locais, validação e build da imagem. O workflow de
+release substitui esse arquivo somente depois do crawl e da validação, faz push do commit de snapshot
+para `main` e, assim, permite que a integração Git da Vercel faça o próximo deployment com a mesma
+observação validada. Mudanças de código não devem regenerar esse arquivo.
 
 Veja [Desenvolvimento e releases](development-and-releases.md) para os gates de publicação.

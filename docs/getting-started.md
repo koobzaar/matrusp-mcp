@@ -118,7 +118,8 @@ docker run --rm \
 
 O runtime Python da Vercel carrega `asgi:app`, configurado em `pyproject.toml`. O arquivo
 `vercel.json` inclui explicitamente `data/matrusp.sqlite` no bundle da função; o runtime continua
-somente-leitura e offline.
+somente-leitura e offline. O workflow semanal de snapshot atualiza esse arquivo em `main` somente após
+um crawl e uma validação bem-sucedidos, fazendo a integração Git da Vercel construir o snapshot novo.
 
 Ao importar o repositório na Vercel, use o preset `Other`, mantenha a raiz do repositório e deixe
 Build Command, Output Directory e Install Command sem override. A plataforma detecta

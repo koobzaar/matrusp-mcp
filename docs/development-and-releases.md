@@ -114,10 +114,17 @@ Fluxo:
 2. coleta para `/tmp/matrusp.sqlite` e gera artefatos;
 3. aplica proteção de delta em relação ao snapshot anterior;
 4. valida o novo SQLite;
-5. copia o snapshot validado para o contexto temporário do build;
-6. exige build Docker válido;
-7. cria uma GitHub Release imutável;
-8. publica a imagem GHCR somente depois da release.
+5. copia o snapshot validado para `data/matrusp.sqlite`;
+6. exige build Docker válido usando esse snapshot;
+7. commita somente `data/matrusp.sqlite` em `main` e faz push para disparar o deployment da Vercel;
+8. cria uma GitHub Release imutável;
+9. publica a imagem GHCR somente depois da release.
+
+O commit automático usa o `GITHUB_TOKEN` fornecido pelo checkout e inclui `[skip ci]`. O GitHub não
+inicia outro workflow para eventos produzidos pelo `GITHUB_TOKEN`, e a marcação torna a intenção
+explícita. O push ainda é um push normal para a integração Git da Vercel, que pode então construir a
+versão de `main` contendo o snapshot validado. Se o conteúdo não mudou, nenhum commit ou deployment
+adicional é criado.
 
 Tags da imagem:
 
@@ -134,8 +141,34 @@ snapshot-v1-{UTC_TIMESTAMP}
 ```
 
 O workflow publica `matrusp-snapshot-{snapshot_id}.sqlite.gz`,
-`manifest-{snapshot_id}.json` e `SHA256SUMS`. O snapshot de produção não é atualizado por commits
-comuns; ele pertence a esse fluxo separado de release.
+`manifest-{snapshot_id}.json` e `SHA256SUMS`. O snapshot de produção é atualizado somente por esse
+workflow; commits comuns não devem regenerar `data/matrusp.sqlite`.
+
+## Atualização manual e verificação na Vercel
+
+Na interface do GitHub, abra **Actions → Weekly snapshot → Run workflow**, selecione `main` e confirme.
+Com a GitHub CLI, o mesmo fluxo é:
+
+```bash
+gh workflow run snapshot.yml --ref main
+gh run watch --exit-status
+```
+
+Depois de uma execução bem-sucedida:
+
+1. confirme que um novo commit `chore(snapshot): publish ...` foi criado em `main`;
+2. copie o `snapshot_id` do manifesto da release ou de `data/matrusp.sqlite` nesse commit;
+3. confirme na Vercel que o deployment de Production aponta para o mesmo commit;
+4. consulte o domínio de produção e compare o ID retornado:
+
+```bash
+curl -fsS https://SEU-DOMINIO/healthz
+curl -fsS https://SEU-DOMINIO/readyz
+```
+
+Os dois endpoints devem responder com `200`, e `/healthz` deve conter o `snapshot_id` esperado. Se o
+deployment apontar para outro commit ou retornar um ID antigo, verifique se o projeto Vercel está
+conectado a este repositório e se `main` está configurada como Production Branch.
 
 ## Imagem de produção
 

@@ -53,6 +53,19 @@ jobs:
           echo "SNAPSHOT_ID=${snapshot_id}" >> "$GITHUB_ENV"
       - name: Gate release on a verified image build
         run: docker build --tag matrusp-mcp:release-gate .
+      - name: Commit snapshot for Vercel deployment
+        run: |
+          set -eu
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/matrusp.sqlite
+          if git diff --cached --quiet; then
+            echo "Snapshot is unchanged; skipping the Vercel-triggering push."
+          else
+            git commit -m "chore(snapshot): publish ${SNAPSHOT_ID} [skip ci]"
+            git push origin HEAD:main
+          fi
+          echo "SNAPSHOT_COMMIT_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
       - name: Create immutable GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -71,6 +84,6 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/${{ github.repository }}:${{ env.SNAPSHOT_COMMIT_SHA }}
             ghcr.io/${{ github.repository }}:${{ env.SNAPSHOT_ID }}
             ghcr.io/${{ github.repository }}:latest
