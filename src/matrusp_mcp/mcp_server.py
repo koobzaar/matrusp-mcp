@@ -226,7 +226,7 @@ async def run_stdio(server: MCPServer) -> None:
         reader_registered = False
         try:
             loop.add_reader(standard_input, read_stdin)
-        except NotImplementedError:
+        except (NotImplementedError, PermissionError):
             task_group.start_soon(read_stdin_thread)
         else:
             reader_registered = True
