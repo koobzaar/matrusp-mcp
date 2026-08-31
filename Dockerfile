@@ -3,7 +3,7 @@ FROM python:3.12-slim
 LABEL org.opencontainers.image.title="matrusp-mcp" \
       org.opencontainers.image.description="Read-only MCP server for public USP JupiterWeb snapshots" \
       org.opencontainers.image.licenses="AGPL-3.0-only" \
-      org.opencontainers.image.source="https://github.com/matrusp/matrusp-mcp"
+      org.opencontainers.image.source="https://github.com/koobzaar/matrusp-mcp"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

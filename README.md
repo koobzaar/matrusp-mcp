@@ -1,6 +1,6 @@
 <div align="center">
   <h1>MatrUSP MCP</h1>
-  <h6>da elite São-Carlense</h6>
+  <h6>Planejamento acadêmico aberto para a USP</h6>
   <p>Planejamento acadêmico da USP com dados públicos versionados, consultas MCP e geração determinística de grades.</p>
 
   <p>
@@ -14,7 +14,7 @@
     <a href="https://github.com/koobzaar/matrusp-mcp/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/koobzaar/matrusp-mcp/ci.yml?branch=main&amp;label=CI" alt="CI"/></a>
     <a href="https://github.com/koobzaar/matrusp-mcp/actions/workflows/contract.yml"><img src="https://img.shields.io/github/actions/workflow/status/koobzaar/matrusp-mcp/contract.yml?label=live%20contract" alt="Live contract"/></a>
     <img src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&amp;logoColor=white" alt="Python 3.12"/>
-    <img src="https://img.shields.io/badge/MCP-v2-5A45FF" alt="MCP v2"/>
+    <img src="https://img.shields.io/badge/Model%20Context%20Protocol-MCP-5A45FF" alt="Model Context Protocol"/>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0--only-663399" alt="AGPL-3.0-only"/></a>
   </p>
 </div>
@@ -116,12 +116,13 @@ Todas as tools são read-only, idempotentes e retornam um envelope com `snapshot
 | JupiterWeb, parsers, SQLite v1, artefatos | [Snapshots e crawler](docs/snapshots-and-crawler.md) |
 | ASGI, Host, Origin e limite de corpo | [Segurança HTTP](docs/http-security.md) |
 | uv, testes, CI, live contract, releases, GHCR | [Desenvolvimento e releases](docs/development-and-releases.md) |
+| Contribuição e segurança | [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) |
 
 ## Tecnologias
 
 | Camada | Tecnologias |
 |---|---|
-| Protocolo e runtime | Python 3.12, MCP v2, Pydantic v2, Starlette, Uvicorn |
+| Protocolo e runtime | Python 3.12, Model Context Protocol, Pydantic v2, Starlette, Uvicorn |
 | Dados e coleta | SQLite FTS5, Beautiful Soup, html5lib, httpx |
 | Engenharia e entrega | uv, pytest, Hypothesis, Playwright, Ruff, Pyright, Docker |
 

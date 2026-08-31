@@ -1,0 +1,32 @@
+name: Relatar um bug
+description: Relate um comportamento incorreto ou uma regressão reproduzível.
+title: "[bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Obrigado pelo relatório. Não inclua credenciais, tokens ou dados pessoais.
+  - type: textarea
+    id: behavior
+    attributes:
+      label: O que aconteceu?
+      description: Descreva o comportamento observado e o comportamento esperado.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Como reproduzir?
+      description: Inclua os passos mínimos e entradas fictícias que reproduzem o problema.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versão ou commit
+      placeholder: "0.1.0 ou SHA curto"
+  - type: input
+    id: environment
+    attributes:
+      label: Ambiente
+      placeholder: "OS, Python, uv, transporte MCP"

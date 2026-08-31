@@ -1,0 +1,23 @@
+name: Sugerir uma melhoria
+description: Proponha uma melhoria alinhada ao escopo do MatrUSP MCP.
+title: "[feature] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema ou necessidade
+      description: Qual situação a melhoria resolveria?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposta
+      description: Descreva o comportamento desejado e alternativas consideradas.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Impacto no projeto
+      description: Comente impacto em API, schema, crawler, snapshots, MCP ou deployment.
