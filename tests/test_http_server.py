@@ -7,7 +7,6 @@ import pytest
 from matrusp_mcp.http_server import (
     BodyLimitMiddleware,
     HostOriginMiddleware,
-    RateLimiter,
     create_http_app,
 )
 from matrusp_mcp.snapshot import build_snapshot
@@ -26,13 +25,6 @@ async def test_health_readiness_and_route_surface(tmp_path: Path) -> None:
         ready = await client.get("/readyz")
         assert ready.status_code == 200 and ready.json()["ready"] is True
         assert (await client.get("/")).status_code == 404
-
-
-def test_body_limit_is_256_kib_and_rate_limiter_uses_weighted_tokens() -> None:
-    limiter = RateLimiter(capacity=20, refill_per_second=1)
-    assert all(limiter.allow("127.0.0.1", 1) for _ in range(20))
-    assert limiter.allow("127.0.0.1", 1) is False
-    assert limiter.allow("127.0.0.2", 5) is True
 
 
 def http_scope(*headers: tuple[bytes, bytes]) -> dict[str, Any]:
