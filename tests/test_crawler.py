@@ -40,6 +40,27 @@ async def test_retry_backoff_and_tls_are_used_without_leaking_source_arguments()
 
 
 @pytest.mark.asyncio
+async def test_retry_shares_url_timeout_budget_across_all_attempts() -> None:
+    timeouts: list[float] = []
+
+    async def fetch(url: str, verify: bool, timeout: float) -> tuple[int, bytes]:
+        del url, verify
+        timeouts.append(timeout)
+        raise TimeoutError("temporary")
+
+    crawler = JupiterCrawler(
+        policy=FetchPolicy(timeout_seconds=10), fetcher=fetch, sleep=lambda _: None
+    )
+    with pytest.raises(CrawlError, match="fetch_error"):
+        await crawler._fetch_with_retry("https://example.test")
+
+    assert len(timeouts) == 4
+    assert timeouts[0] == pytest.approx(2.5, abs=0.01)
+    assert timeouts[-1] == pytest.approx(10, abs=0.01)
+    assert timeouts == sorted(timeouts)
+
+
+@pytest.mark.asyncio
 async def test_unclassified_fetch_failure_aborts_publication() -> None:
     async def fetch(url: str, verify: bool, timeout: float) -> tuple[int, bytes]:
         raise OSError("offline")

@@ -104,10 +104,12 @@ class JupiterCrawler:
             remaining = deadline - asyncio.get_running_loop().time()
             if remaining <= 0:
                 break
+            attempts_left = self.policy.attempts - attempt
+            attempt_timeout = min(self.policy.timeout_seconds, remaining / attempts_left)
             try:
                 async with self._semaphore:
                     status, body = await self.fetcher(
-                        url, True, min(self.policy.timeout_seconds, remaining)
+                        url, True, attempt_timeout
                     )
                 if status == 200:
                     self.source_checksums[url] = hashlib.sha256(body).hexdigest()

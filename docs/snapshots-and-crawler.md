@@ -49,7 +49,7 @@ anterior, o candidato é validado e submetido à proteção de delta antes de su
 
 | Parâmetro | Valor |
 |---|---:|
-| timeout total por URL | até `60 s` |
+| orçamento total por URL | até `60 s`, compartilhado entre as tentativas |
 | tentativas | exatamente `4` |
 | concorrência | padrão `8`, máximo `16` |
 | backoff | exponencial a partir de `250 ms` |
@@ -57,8 +57,10 @@ anterior, o candidato é validado e submetido à proteção de delta antes de su
 | TLS | verificação obrigatória |
 | User-Agent | `MatrUSP-MCP/0.1` com URL do projeto |
 
-Cada corpo HTTP aceito recebe SHA-256 e entra em `source_checksums`. Status diferente de `200`,
-timeout ou erro de transporte esgota a política de retry e aborta a coleta.
+O orçamento de cada URL é dividido entre as tentativas restantes; o backoff também consome esse
+orçamento. Assim, uma tentativa lenta não impede as quatro tentativas previstas. Cada corpo HTTP
+aceito recebe SHA-256 e entra em `source_checksums`. Status diferente de `200`, timeout ou erro de
+transporte esgota a política de retry e aborta a coleta.
 
 ## Descoberta e classificação
 
