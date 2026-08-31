@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -154,3 +155,36 @@ async def test_collection_aborts_when_no_current_curriculum_is_discovered() -> N
 
     with pytest.raises(CrawlError, match="invalid_source: no curriculum candidates"):
         await JupiterCrawler(fetcher=fetch, sleep=lambda _: None).crawl()
+
+
+@pytest.mark.asyncio
+async def test_discipline_details_are_fetched_concurrently() -> None:
+    active_details = 0
+    max_active_details = 0
+
+    async def fetch(url: str, verify: bool, timeout: float) -> tuple[int, bytes]:
+        nonlocal active_details, max_active_details
+        del verify, timeout
+        if "jupColegiadoLista" in url:
+            return 200, b'<a href="jupColegiadoMenu?codcg=3">Escola Politecnica</a>'
+        if "jupDisciplinaLista" in url:
+            return 200, (
+                b'<a href="obterTurma?sgldis=0300001&verdis=1">Um</a>'
+                b'<a href="obterTurma?sgldis=0300002&verdis=1">Dois</a>'
+            )
+        if "obterTurma" in url:
+            return 200, b"<table><tr><td>Codigo da Turma</td><td>2026201</td></tr></table>"
+        if "obterDisciplina" in url:
+            active_details += 1
+            max_active_details = max(max_active_details, active_details)
+            await asyncio.sleep(0)
+            active_details -= 1
+            code = "0300001" if "0300001" in url else "0300002"
+            return 200, f"<table><tr><td>Disciplina: {code}</td></tr></table>".encode()
+        raise AssertionError(f"unexpected URL: {url}")
+
+    crawler = JupiterCrawler(fetcher=fetch, sleep=lambda _: None, collect_curricula=False)
+    data = await crawler.crawl()
+
+    assert len(data.disciplines) == 2
+    assert max_active_details == 2

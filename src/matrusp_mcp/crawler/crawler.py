@@ -194,6 +194,12 @@ class JupiterCrawler:
         )
         return parsed
 
+    async def _fetch_discipline_detail(self, candidate: CandidateDiscipline) -> tuple[str, bytes]:
+        _, detail = await self._fetch_with_retry(
+            f"{BASE_URL}obterDisciplina?print=true&sgldis={candidate.code}"
+        )
+        return candidate.code, detail
+
     @staticmethod
     def _discipline_from_candidate(
         candidate: CandidateDiscipline, unit_code: str | None, detail: bytes | None
@@ -264,16 +270,21 @@ class JupiterCrawler:
             if curriculum_candidates
             else ()
         )
+        discipline_details = dict(
+            await asyncio.gather(
+                *(
+                    self._fetch_discipline_detail(candidate)
+                    for candidate, _ in parsed_results
+                    if self.should_fetch_discipline(candidate)
+                )
+            )
+        )
         disciplines: list[Discipline] = []
         sections = []
         vacancies: list[Vacancy] = []
         for candidate, parsed in parsed_results:
             unit_code = candidate.unit_codes[0] if candidate.unit_codes else None
-            detail: bytes | None = None
-            if self.should_fetch_discipline(candidate):
-                _, detail = await self._fetch_with_retry(
-                    f"{BASE_URL}obterDisciplina?print=true&sgldis={candidate.code}"
-                )
+            detail = discipline_details.get(candidate.code)
             cached = (
                 self.previous_versions.get((candidate.code, candidate.verdis or ""))
                 if detail is None
