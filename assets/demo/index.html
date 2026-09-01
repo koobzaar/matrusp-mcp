@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=1280, initial-scale=1" />
+    <title>MatrUSP MCP demo</title>
+    <link rel="stylesheet" href="demo.css" />
+  </head>
+  <body>
+    <main class="app-shell" aria-label="Demonstração visual de uma conversa usando MatrUSP">
+      <aside class="sidebar" aria-label="Barra lateral">
+        <div class="sidebar-top">
+          <div class="brand-mark" aria-hidden="true">M</div>
+          <span class="brand-name">MatrUSP</span>
+          <button class="icon-button" type="button" aria-label="Mais opções">•••</button>
+        </div>
+
+        <div class="new-chat">
+          <span class="plus" aria-hidden="true">+</span>
+          <span>Nova conversa</span>
+        </div>
+
+        <div class="sidebar-label">Recentes</div>
+        <div class="conversation-item is-active">
+          <span class="conversation-icon" aria-hidden="true">⌁</span>
+          <span>Reorganizar minha grade</span>
+        </div>
+
+        <div class="sidebar-footer">
+          <div class="footer-rule"></div>
+          <div class="footer-line"><span class="status-dot"></span> demonstração local</div>
+          <div class="footer-caption">dados públicos · somente leitura</div>
+        </div>
+      </aside>
+
+      <section class="chat-pane" aria-label="Conversa">
+        <header class="chat-header">
+          <div class="chat-title">
+            <span class="chat-title-name">MatrUSP MCP</span>
+            <span class="title-chevron" aria-hidden="true">⌄</span>
+          </div>
+          <span class="header-caption">planejamento acadêmico</span>
+          <button class="icon-button header-more" type="button" aria-label="Mais opções">•••</button>
+        </header>
+
+        <div class="conversation-stage">
+          <div class="conversation-layer">
+            <article class="message user-message" id="user-message">
+              <p>
+                Sou aluno de Matemática no ICMC e quero reorganizar minha grade. Quero cursar
+                Álgebra Linear e também tenho interesse em Matemática Aplicada ou Computação
+                Científica. Preciso de pelo menos uma disciplina de 2 créditos e prefiro ir ao
+                campus no menor número possível de dias.
+              </p>
+            </article>
+
+            <div class="thinking-row" id="thinking-row" aria-label="MatrUSP está processando">
+              <span class="assistant-avatar" aria-hidden="true">M</span>
+              <span class="thinking-label">Pensando</span>
+              <span class="thinking-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            </div>
+
+            <section class="activity-card" id="activity-card" aria-label="Atividade do MatrUSP">
+              <div class="activity-heading">
+                <span class="activity-mark" aria-hidden="true">M</span>
+                <span>MatrUSP</span>
+                <span class="activity-meta" id="activity-meta">consultando dados locais</span>
+              </div>
+              <div class="tool-list">
+                <div class="tool-row" data-tool-index="0">
+                  <span class="tool-state" aria-hidden="true"></span>
+                  <span>Searching MatrUSP offerings</span>
+                  <span class="tool-tag">read-only</span>
+                </div>
+                <div class="tool-row" data-tool-index="1">
+                  <span class="tool-state" aria-hidden="true"></span>
+                  <span>Reading Mathematics curriculum</span>
+                  <span class="tool-tag">read-only</span>
+                </div>
+                <div class="tool-row" data-tool-index="2">
+                  <span class="tool-state" aria-hidden="true"></span>
+                  <span>Reading Applied Mathematics curriculum</span>
+                  <span class="tool-tag">read-only</span>
+                </div>
+                <div class="tool-row" data-tool-index="3">
+                  <span class="tool-state" aria-hidden="true"></span>
+                  <span>Generating schedules</span>
+                  <span class="tool-tag">deterministic</span>
+                </div>
+              </div>
+              <div class="activity-summary" id="activity-summary">
+                <span class="summary-check" aria-hidden="true">✓</span>
+                <span>MatrUSP · 4 consultas concluídas</span>
+              </div>
+            </section>
+
+            <article class="message assistant-message" id="assistant-message">
+              <div class="assistant-avatar answer-avatar" aria-hidden="true">M</div>
+              <div class="answer-content">
+                <p class="answer-line" data-answer-line="0">
+                  A disciplina curricular de <strong>Álgebra Linear</strong> é <strong>SMA0375</strong>,
+                  com aulas às segundas, quartas e sextas.
+                </p>
+                <p class="answer-line" data-answer-line="1">
+                  Se Álgebra Linear sozinha satisfizer a adição de créditos, essa é a opção com
+                  menos dias no campus.
+                </p>
+                <p class="answer-line" data-answer-line="2">
+                  Para acrescentar uma disciplina do BMACC, <strong>SMA0332 + SMA0375</strong> mantém
+                  a grade em 3 dias, condicionado ao pré-requisito de SMA0332.
+                </p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+    <script src="demo.js"></script>
+  </body>
+</html>

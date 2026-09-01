@@ -19,6 +19,10 @@
   </p>
 </div>
 
+<p align="center">
+  <img src="assets/demo/matrusp-demo.gif" alt="MatrUSP MCP demo" width="1280" />
+</p>
+
 ## Sobre o projeto
 
 O **MatrUSP MCP** transforma as informações públicas do JupiterWeb em uma interface estruturada para
@@ -110,6 +114,7 @@ Todas as tools são read-only, idempotentes e retornam um envelope com `snapshot
 | Área | Referência |
 |---|---|
 | Instalação, stdio, Streamable HTTP, Docker | [Instalação e execução](docs/getting-started.md) |
+| Skill de planejamento acadêmico | [matrusp-academic-planning](skills/matrusp-academic-planning/SKILL.md) |
 | Camadas, módulos, domínio, IDs, invariantes | [Arquitetura](docs/architecture.md) |
 | Tools, inputs, respostas, erros, manifesto | [Referência MCP](docs/mcp-reference.md) |
 | Intervalos, conflitos, bundles, top-K, score | [Semântica temporal e ranking](docs/temporal-and-ranking.md) |
