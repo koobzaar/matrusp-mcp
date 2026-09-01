@@ -93,6 +93,7 @@ A lógica de horários também não fica inteiramente a cargo do modelo. Conflit
 | Área                               | Documentação                                                           |
 | ---------------------------------- | ---------------------------------------------------------------------- |
 | Instalação, stdio, HTTP e Docker   | [Instalação e execução](docs/getting-started.md)                       |
+| Instalação no ChatGPT              | [Tutorial para usar no ChatGPT](docs/chatgpt.md)                       |
 | Skill de planejamento              | [matrusp-academic-planning](skills/matrusp-academic-planning/SKILL.md) |
 | Tools, inputs, respostas e erros   | [Referência MCP](docs/mcp-reference.md)                                |
 | Estrutura interna e domínio        | [Arquitetura](docs/architecture.md)                                    |

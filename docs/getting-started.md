@@ -145,6 +145,7 @@ curl https://matrusp-mcp.vercel.app/readyz
 
 ## Próximos passos
 
+- [Usar o MatrUSP no ChatGPT](chatgpt.md)
 - [Referência MCP](mcp-reference.md)
 - [Arquitetura](architecture.md)
 - [Semântica temporal e geração de horários](temporal-and-ranking.md)
