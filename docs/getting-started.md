@@ -121,6 +121,9 @@ O runtime Python da Vercel carrega `asgi:app`, configurado em `pyproject.toml`. 
 somente-leitura e offline. O workflow semanal de snapshot atualiza esse arquivo em `main` somente após
 um crawl e uma validação bem-sucedidos, fazendo a integração Git da Vercel construir o snapshot novo.
 
+A instância pública atual do transporte MCP está disponível em
+`https://matrusp-mcp.vercel.app/mcp`.
+
 Ao importar o repositório na Vercel, use o preset `Other`, mantenha a raiz do repositório e deixe
 Build Command, Output Directory e Install Command sem override. A plataforma detecta
 `pyproject.toml` e `uv.lock`.
@@ -136,8 +139,8 @@ domínios que não estejam nas variáveis da plataforma, como um domínio person
 Depois do deployment, verifique:
 
 ```bash
-curl https://SEU-DOMINIO.vercel.app/healthz
-curl https://SEU-DOMINIO.vercel.app/readyz
+curl https://matrusp-mcp.vercel.app/healthz
+curl https://matrusp-mcp.vercel.app/readyz
 ```
 
 ## Próximos passos

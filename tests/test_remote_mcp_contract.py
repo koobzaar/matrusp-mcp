@@ -17,8 +17,10 @@ from jsonschema import Draft202012Validator
 from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 
+from matrusp_mcp.bootstrap import bootstrap_data
 from matrusp_mcp.http_server import create_http_app
 from matrusp_mcp.mcp_server import TOOL_NAMES
+from matrusp_mcp.snapshot import build_snapshot
 from matrusp_mcp.vercel import create_vercel_app
 
 
@@ -68,7 +70,7 @@ def tool_error_payload(text: str) -> dict[str, str]:
 
 def make_app(tmp_path: Path, **kwargs: Any) -> Any:
     snapshot = tmp_path / "snapshot.sqlite"
-    shutil.copyfile(Path(__file__).parents[1] / "data" / "matrusp.sqlite", snapshot)
+    build_snapshot(bootstrap_data(), snapshot)
     return create_http_app(snapshot, **kwargs)
 
 

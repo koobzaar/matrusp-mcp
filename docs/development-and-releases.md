@@ -110,7 +110,7 @@ concorrência `snapshot-release` sem cancelamento de execução anterior.
 
 Fluxo:
 
-1. baixa o snapshot da última release, quando existente;
+1. baixa o snapshot da última release de snapshot (`snapshot-v1-*`), quando existente;
 2. coleta para `/tmp/matrusp.sqlite` e gera artefatos;
 3. aplica proteção de delta em relação ao snapshot anterior;
 4. valida o novo SQLite;
@@ -162,8 +162,8 @@ Depois de uma execução bem-sucedida:
 4. consulte o domínio de produção e compare o ID retornado:
 
 ```bash
-curl -fsS https://SEU-DOMINIO/healthz
-curl -fsS https://SEU-DOMINIO/readyz
+curl -fsS https://matrusp-mcp.vercel.app/healthz
+curl -fsS https://matrusp-mcp.vercel.app/readyz
 ```
 
 Os dois endpoints devem responder com `200`, e `/healthz` deve conter o `snapshot_id` esperado. Se o
