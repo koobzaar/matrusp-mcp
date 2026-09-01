@@ -1,14 +1,7 @@
 <div align="center">
   <h1>MatrUSP MCP</h1>
-  <h6>Planejamento acadêmico aberto para a USP</h6>
-  <p>Planejamento acadêmico da USP com dados públicos versionados, consultas MCP e geração determinística de grades.</p>
-
-  <p>
-    <a href="#sobre-o-projeto">Projeto</a> •
-    <a href="#principais-recursos">Recursos</a> •
-    <a href="#começando">Começando</a> •
-    <a href="#documentação">Documentação</a>
-  </p>
+  <p><strong>Planejamento acadêmico da USP para ChatGPT e outros clientes MCP.</strong></p>
+  <p>Disciplinas, currículos, horários, conflitos e geração de grades a partir dos dados públicos do JupiterWeb.</p>
 
   <p>
     <a href="https://github.com/koobzaar/matrusp-mcp/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/koobzaar/matrusp-mcp/ci.yml?branch=main&amp;label=CI" alt="CI"/></a>
@@ -23,62 +16,49 @@
   <img src="assets/demo/matrusp-demo.gif" alt="MatrUSP MCP demo" width="1280" />
 </p>
 
-## Sobre o projeto
+## Planejamento acadêmico, mas consultável por IA
 
-O **MatrUSP MCP** transforma as informações públicas do JupiterWeb em uma interface estruturada para
-clientes compatíveis com o [Model Context Protocol](https://modelcontextprotocol.io/). O servidor
-permite consultar disciplinas, turmas, horários, professores e currículos, verificar conflitos e
-montar alternativas de grade com ordenação reproduzível.
+Montar uma grade na USP exige cruzar informações que normalmente ficam espalhadas entre disciplinas, turmas, horários, créditos, requisitos e currículos.
 
-Os dados são coletados por um processo separado, normalizados e publicados como snapshots SQLite
-validados. Durante o uso, o servidor é **somente-leitura e offline**: não acessa o JupiterWeb, não
-modifica o banco e sempre identifica a observação usada na resposta.
+O **MatrUSP MCP** transforma os dados públicos do JupiterWeb em uma interface estruturada para assistentes de IA. Em vez de interpretar páginas e tabelas manualmente, o modelo pode consultar os dados relevantes e usar operações próprias para verificar conflitos, encontrar alternativas e montar grades.
 
-### Objetivos
+### Principais recursos
 
-- oferecer uma interface estável e tipada sobre páginas públicas heterogêneas;
-- apoiar busca de ofertas, análise curricular e planejamento de horários;
-- representar conflitos e dados incompletos sem produzir falsas certezas;
-- gerar grades top-K com restrições, preferências e desempate determinístico;
-- preservar proveniência, qualidade e instante de observação de cada snapshot.
+* busca de disciplinas, ofertas, professores, unidades e campi;
+* consulta de créditos, requisitos e estrutura curricular;
+* consideração de todas as turmas disponíveis de uma disciplina;
+* verificação de conflitos entre aulas e compromissos;
+* busca de disciplinas para preencher janelas livres;
+* geração e comparação de alternativas de grade;
+* ranking por critérios como dias no campus e janelas entre aulas;
+* representação explícita de horários incompletos como `unknown`.
 
-## Principais recursos
+O repositório também inclui a skill [`matrusp-academic-planning`](skills/matrusp-academic-planning/SKILL.md), com semântica e orientação para consultas acadêmicas mais complexas.
 
-| Recurso | Descrição |
-|---|---|
-| Busca acadêmica | Disciplinas, ofertas, professores, unidades, campi e currículos |
-| Horários | Filtros por dia e janela, intervalos semiabertos e bloqueios manuais |
-| Conflitos | Estados `conflict`, `no_conflict` e `unknown` |
-| Geração de grades | Backtracking top-K, hard constraints, preferências e orçamento de busca |
-| Currículos | Período ideal, créditos, requisitos fortes/fracos e indicações de conjunto |
-| Qualidade dos dados | Horários completos, parciais ou desconhecidos e avisos públicos |
-| Snapshots | SQLite imutável, FTS5, manifesto, checksums e publicação atômica |
-| Transportes | MCP por stdio ou Streamable HTTP stateless |
+## Tools MCP
 
-## Como funciona
+| Tool                       | Função                                                      |
+| -------------------------- | ----------------------------------------------------------- |
+| `search_offerings`         | Busca ofertas com filtros acadêmicos e temporais            |
+| `get_discipline`           | Consulta detalhes e turmas de uma disciplina                |
+| `find_gap_fillers`         | Encontra ofertas para uma janela livre                      |
+| `check_schedule_conflicts` | Verifica conflitos entre turmas e bloqueios                 |
+| `generate_schedules`       | Gera e ordena combinações de grade                          |
+| `compare_schedules`        | Compara alternativas de horário                             |
+| `search_curricula`         | Busca currículos por texto, unidade ou campus               |
+| `get_curriculum`           | Consulta disciplinas, créditos e requisitos de um currículo |
 
-```mermaid
-flowchart LR
-    JW[JupiterWeb] -->|crawler HTTPS| P[Parser e normalização]
-    P -->|validação atômica| DB[(Snapshot SQLite)]
-    DB -->|read-only e offline| MCP[Servidor MCP]
-    MCP --> C[Clientes e assistentes]
-```
+Todas as tools são read-only e idempotentes. As respostas incluem `snapshot_id`, `observed_at`, `warnings` e `data`.
 
-O crawler reconhece ofertas, ausências de oferecimento, estruturas curriculares e detalhes de
-disciplinas. O snapshot só é promovido após verificações de integridade, foreign keys, schema,
-contagens e índices de busca. O runtime então fornece a mesma camada de serviço pelos dois
-transportes suportados.
+## Rodando localmente
 
-## Começando
-
-Requisitos: **Python 3.12+** e **uv 0.10.11–0.12.x**; desenvolvimento e CI usam `0.12.5`.
+Requisitos: **Python 3.12+** e **uv 0.10.11–0.12.x**.
 
 ```bash
 git clone https://github.com/koobzaar/matrusp-mcp.git
 cd matrusp-mcp
+
 uv sync --locked
-uv run --locked matrusp-mcp validate data/matrusp.sqlite
 uv run --locked matrusp-mcp serve --transport stdio --snapshot data/matrusp.sqlite
 ```
 
@@ -90,58 +70,48 @@ uv run --locked matrusp-mcp serve \
   --snapshot data/matrusp.sqlite
 ```
 
-Configuração de clientes MCP, variáveis de ambiente e Docker estão em
-[Instalação e execução](docs/getting-started.md).
+Configuração de clientes MCP, Docker e variáveis de ambiente estão em [Instalação e execução](docs/getting-started.md).
 
-## Ferramentas MCP
+## Como os dados chegam ao MCP
 
-| Tool | Função |
-|---|---|
-| `search_offerings` | busca ofertas correntes com filtros acadêmicos e temporais |
-| `get_discipline` | retorna detalhes e versões de uma disciplina |
-| `find_gap_fillers` | encontra ofertas compatíveis com uma janela livre |
-| `check_schedule_conflicts` | verifica bundles, turmas e bloqueios manuais |
-| `generate_schedules` | gera e ordena combinações de grade |
-| `compare_schedules` | compara alternativas com as mesmas métricas do gerador |
-| `search_curricula` | busca currículos atuais por texto, unidade ou campus |
-| `get_curriculum` | retorna itens, períodos e relações de um currículo |
+```mermaid
+flowchart LR
+    JW[JupiterWeb] -->|coleta| P[Parser e normalização]
+    P -->|validação| DB[(Snapshot SQLite)]
+    DB -->|read-only| MCP[MatrUSP MCP]
+    MCP --> AI[ChatGPT / clientes MCP]
+```
 
-Todas as tools são read-only, idempotentes e retornam um envelope com `snapshot_id`, `observed_at`,
-`warnings` e `data`. O recurso `matrusp://snapshot/manifest` expõe a proveniência do snapshot.
+A coleta é separada do servidor.
 
-## Documentação
+O crawler transforma os dados públicos do JupiterWeb em snapshots SQLite versionados e validados. Durante uma consulta, o servidor trabalha somente sobre o snapshot: não acessa o JupiterWeb em tempo real e não modifica os dados.
 
-| Área | Referência |
-|---|---|
-| Instalação, stdio, Streamable HTTP, Docker | [Instalação e execução](docs/getting-started.md) |
-| Skill de planejamento acadêmico | [matrusp-academic-planning](skills/matrusp-academic-planning/SKILL.md) |
-| Camadas, módulos, domínio, IDs, invariantes | [Arquitetura](docs/architecture.md) |
-| Tools, inputs, respostas, erros, manifesto | [Referência MCP](docs/mcp-reference.md) |
-| Intervalos, conflitos, bundles, top-K, score | [Semântica temporal e ranking](docs/temporal-and-ranking.md) |
-| JupiterWeb, parsers, SQLite v1, artefatos | [Snapshots e crawler](docs/snapshots-and-crawler.md) |
-| ASGI, Host, Origin e limite de corpo | [Segurança HTTP](docs/http-security.md) |
-| uv, testes, CI, live contract, releases, GHCR | [Desenvolvimento e releases](docs/development-and-releases.md) |
-| Contribuição e segurança | [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) |
+A lógica de horários também não fica inteiramente a cargo do modelo. Conflitos, combinações e métricas de grade são calculados deterministicamente pelo servidor.
 
-## Tecnologias
+## Referência técnica
 
-| Camada | Tecnologias |
-|---|---|
-| Protocolo e runtime | Python 3.12, Model Context Protocol, Pydantic v2, Starlette, Uvicorn |
-| Dados e coleta | SQLite FTS5, Beautiful Soup, html5lib, httpx |
-| Engenharia e entrega | uv, pytest, Hypothesis, Playwright, Ruff, Pyright, Docker |
+| Área                               | Documentação                                                           |
+| ---------------------------------- | ---------------------------------------------------------------------- |
+| Instalação, stdio, HTTP e Docker   | [Instalação e execução](docs/getting-started.md)                       |
+| Skill de planejamento              | [matrusp-academic-planning](skills/matrusp-academic-planning/SKILL.md) |
+| Tools, inputs, respostas e erros   | [Referência MCP](docs/mcp-reference.md)                                |
+| Estrutura interna e domínio        | [Arquitetura](docs/architecture.md)                                    |
+| Conflitos, bundles e ranking       | [Semântica temporal e ranking](docs/temporal-and-ranking.md)           |
+| Coleta e snapshots                 | [Snapshots e crawler](docs/snapshots-and-crawler.md)                   |
+| Desenvolvimento, testes e releases | [Desenvolvimento e releases](docs/development-and-releases.md)         |
+| Segurança HTTP                     | [Segurança HTTP](docs/http-security.md)                                |
 
-## Dados e limitações
+## Limitações
 
 > [!IMPORTANT]
-> O MatrUSP MCP não é um sistema oficial da USP. Horários, vagas e currículos refletem o instante do
-> snapshot; vagas são observações, não garantias de matrícula. Consulte o
-> [JupiterWeb](https://uspdigital.usp.br/jupiterweb/) para decisões acadêmicas oficiais.
+> O MatrUSP MCP não é um sistema oficial da USP.
 
-O snapshot em `data/matrusp.sqlite` é destinado a desenvolvimento. Snapshots de produção são
-gerados pelo workflow de coleta e publicados separadamente com manifesto e checksums.
+Horários, vagas e currículos refletem o instante do snapshot. Vagas observadas não garantem matrícula, e o servidor não conhece automaticamente informações pessoais do aluno, como disciplinas já cursadas ou requisitos cumpridos.
+
+Para decisões acadêmicas oficiais, consulte o [JupiterWeb](https://uspdigital.usp.br/jupiterweb/).
 
 ## Licença
 
-Código distribuído sob [AGPL-3.0-only](LICENSE). Consulte também
-[CONTRIBUTORS.md](CONTRIBUTORS.md) para atribuição e histórico da comunidade MatrUSP.
+Código distribuído sob [AGPL-3.0-only](LICENSE).
+
+Consulte também [CONTRIBUTORS.md](CONTRIBUTORS.md).
